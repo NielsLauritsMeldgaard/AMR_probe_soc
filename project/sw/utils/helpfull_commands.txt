@@ -1,0 +1,33 @@
+Compile command, O0 optimized (use this primarely. can be changed to O2 optimized):
+    riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -ffreestanding -nostdlib -nostartfiles -static -O0 -g -msmall-data-limit=0 -Wl,-e,_start -Wl,-Map=main.map  -T linker.ld crt0.s main.c -o main.elf
+
+With GNU libgcc
+    riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -ffreestanding -nostdlib -nostartfiles -static -O2 -Wl,-e,_start -T linker.ld crt0.s main.c -lgcc -o main.elf
+
+Flag to create memry map file:
+    -Map=main.map
+
+Compile command assuming no dynamic linker, not optimzed (for debugging):
+    riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -ffreestanding -nostdlib -nostartfiles -static -O0 -g -msmall-data-limit=0 -Wl,-e,_start -Wl,-Map=main.map  -T linker.ld crt0.s main.c -o main.elf
+
+Inspect program:
+    riscv64-unknown-elf-objdump -D main.elf
+
+Check section layout:
+    riscv64-unknown-elf-readelf -S main.elf
+
+Check memory addresses:
+    riscv64-unknown-elf-objdump -h main.elf
+
+Check symbol addresses:
+    riscv64-unknown-elf-nm -S main.elf
+
+Check binary:
+    riscv64-unknown-elf-objdump -s main.elf
+
+Conversion command:
+    riscv64-unknown-elf-objcopy -O binary main.elf main.bin
+
+Hex dump of bin
+    hexdump -v -e '"%08_ax: " 4/1 "%02x " "\n"' main.bin
+

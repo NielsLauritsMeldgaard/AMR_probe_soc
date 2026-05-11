@@ -1,0 +1,3 @@
+/mnt/c/Users/niels/OneDrive/Skrivebord/digital_design_code/Bsc_project/project/sw/build/CMakeFiles/firmware.elf.dir
+/mnt/c/Users/niels/OneDrive/Skrivebord/digital_design_code/Bsc_project/project/sw/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/niels/OneDrive/Skrivebord/digital_design_code/Bsc_project/project/sw/build/CMakeFiles/rebuild_cache.dir

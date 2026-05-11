@@ -1,0 +1,155 @@
+
+There are no discarded input sections
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+IMEM             0x10000000         0x00020000         xr
+DMEM             0x20000000         0x00010000         rw
+LM               0x00000000         0x00030000         xr
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD CMakeFiles/firmware.elf.dir/src/driver.c.o
+LOAD CMakeFiles/firmware.elf.dir/src/hal.c.o
+LOAD CMakeFiles/firmware.elf.dir/src/main.c.o
+LOAD CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.boot_table     0x00000000       0x24
+                0x00000000                        _boot_table = .
+                0x00000000        0x4 LONG 0x10000000 ADDR (.text)
+                0x00000004        0x4 LONG 0x24 LOADADDR (.text)
+                0x00000008        0x4 LONG 0x56c SIZEOF (.text)
+                0x0000000c        0x4 LONG 0x20000000 ADDR (.rodata)
+                0x00000010        0x4 LONG 0x590 LOADADDR (.rodata)
+                0x00000014        0x4 LONG 0xc SIZEOF (.rodata)
+                0x00000018        0x4 LONG 0x2000000c ADDR (.data)
+                0x0000001c        0x4 LONG 0x59c LOADADDR (.data)
+                0x00000020        0x4 LONG 0x0 SIZEOF (.data)
+
+.text           0x10000000      0x56c load address 0x00000024
+                0x10000000                        _stext = .
+ *(.text.start)
+ .text.start    0x10000000       0x30 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+                0x10000000                _start
+ *(.text*)
+ .text          0x10000030      0x10c CMakeFiles/firmware.elf.dir/src/driver.c.o
+                0x10000030                print_hex
+                0x100000e4                print_str
+ .text          0x1000013c      0x348 CMakeFiles/firmware.elf.dir/src/hal.c.o
+                0x1000013c                delay_cycles
+                0x10000178                set_leds
+                0x100001ac                set_counter
+                0x100001e0                read_timer
+                0x1000021c                uart_write_byte
+                0x10000268                read_xadc
+                0x100002a4                spi_write_reg
+                0x100002d4                spi_read_reg
+                0x100002fc                spi_configure
+                0x10000390                spi_set_slave
+                0x10000408                spi_remove_slave
+ .text          0x10000484       0xe8 CMakeFiles/firmware.elf.dir/src/main.c.o
+                0x10000484                main
+ .text          0x1000056c        0x0 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+                0x1000056c                        _etext = .
+
+.rodata         0x20000000        0xc load address 0x00000590
+                0x20000000                        _srodata = .
+ *(.rodata*)
+ .rodata        0x20000000        0xc CMakeFiles/firmware.elf.dir/src/main.c.o
+                0x2000000c                        _erodata = .
+
+.rela.dyn       0x2000000c        0x0 load address 0x0000059c
+ .rela.text.start
+                0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/driver.c.o
+
+.data           0x2000000c        0x0 load address 0x0000059c
+                0x2000000c                        _sdata = .
+ *(.data*)
+ .data          0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .data          0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .data          0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .data          0x2000000c        0x0 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+                0x2000000c                        _edata = .
+
+.bss            0x2000000c        0x0 load address 0x0000059c
+                0x2000000c                        _sbss = .
+ *(.bss*)
+ .bss           0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .bss           0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .bss           0x2000000c        0x0 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .bss           0x2000000c        0x0 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+ *(COMMON)
+                0x2000000c                        _ebss = .
+                0x20010000                        PROVIDE (_stack_top = (ORIGIN (DMEM) + LENGTH (DMEM)))
+OUTPUT(firmware.elf elf32-littleriscv)
+
+.debug_info     0x00000000      0x4ac
+ .debug_info    0x00000000       0xe9 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .debug_info    0x000000e9      0x24c CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_info    0x00000335      0x153 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_info    0x00000488       0x24 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_abbrev   0x00000000      0x264
+ .debug_abbrev  0x00000000       0xc2 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .debug_abbrev  0x000000c2       0xd6 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_abbrev  0x00000198       0xb8 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_abbrev  0x00000250       0x14 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_aranges  0x00000000       0x80
+ .debug_aranges
+                0x00000000       0x20 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .debug_aranges
+                0x00000020       0x20 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_aranges
+                0x00000040       0x20 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_aranges
+                0x00000060       0x20 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_line     0x00000000      0x4c3
+ .debug_line    0x00000000      0x105 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .debug_line    0x00000105      0x24c CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_line    0x00000351       0xfa CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_line    0x0000044b       0x78 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_str      0x00000000      0x232
+ .debug_str     0x00000000      0x232 CMakeFiles/firmware.elf.dir/src/driver.c.o
+                                 0xbd (size before relaxing)
+ .debug_str     0x00000232      0x14b CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_str     0x00000232      0x106 CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_str     0x00000232       0xc5 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_line_str
+                0x00000000      0x293
+ .debug_line_str
+                0x00000000      0x293 CMakeFiles/firmware.elf.dir/src/driver.c.o
+                                0x1da (size before relaxing)
+ .debug_line_str
+                0x00000293      0x16e CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_line_str
+                0x00000293      0x1dd CMakeFiles/firmware.elf.dir/src/main.c.o
+ .debug_line_str
+                0x00000293       0xb9 CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.comment        0x00000000       0x22
+ .comment       0x00000000       0x22 CMakeFiles/firmware.elf.dir/src/driver.c.o
+                                 0x23 (size before relaxing)
+ .comment       0x00000022       0x23 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .comment       0x00000022       0x23 CMakeFiles/firmware.elf.dir/src/main.c.o
+
+.riscv.attributes
+                0x00000000       0x1c
+ .riscv.attributes
+                0x00000000       0x1c CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .riscv.attributes
+                0x0000001c       0x1c CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .riscv.attributes
+                0x00000038       0x1c CMakeFiles/firmware.elf.dir/src/main.c.o
+ .riscv.attributes
+                0x00000054       0x1a CMakeFiles/firmware.elf.dir/startup/crt0.s.o
+
+.debug_frame    0x00000000      0x234
+ .debug_frame   0x00000000       0x60 CMakeFiles/firmware.elf.dir/src/driver.c.o
+ .debug_frame   0x00000060      0x1a8 CMakeFiles/firmware.elf.dir/src/hal.c.o
+ .debug_frame   0x00000208       0x2c CMakeFiles/firmware.elf.dir/src/main.c.o

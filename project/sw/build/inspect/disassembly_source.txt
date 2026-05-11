@@ -1,0 +1,581 @@
+
+/mnt/c/Users/niels/OneDrive/Skrivebord/digital_design_code/Bsc_project/project/sw/build/firmware.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+10000000 <_start>:
+.section .text.start
+.global _start
+
+_start:
+    la sp, _stack_top
+10000000:	10010117          	auipc	sp,0x10010
+10000004:	00010113          	mv	sp,sp
+
+10000008 <clear_bss>:
+
+clear_bss:
+    la t0, _sbss
+10000008:	10000297          	auipc	t0,0x10000
+1000000c:	00428293          	addi	t0,t0,4 # 2000000c <_ebss>
+    la t1, _ebss
+10000010:	10000317          	auipc	t1,0x10000
+10000014:	ffc30313          	addi	t1,t1,-4 # 2000000c <_ebss>
+
+10000018 <zero_bss>:
+
+zero_bss:
+    bge t0, t1, call_main
+10000018:	0062d863          	bge	t0,t1,10000028 <call_main>
+    sw  zero, 0(t0)
+1000001c:	0002a023          	sw	zero,0(t0)
+    addi t0, t0, 4
+10000020:	00428293          	addi	t0,t0,4
+    j zero_bss
+10000024:	ff5ff06f          	j	10000018 <zero_bss>
+
+10000028 <call_main>:
+
+call_main:
+    call main
+10000028:	45c000ef          	jal	10000484 <main>
+
+1000002c <hang>:
+
+hang:
+    j hang
+1000002c:	0000006f          	j	1000002c <hang>
+
+10000030 <print_hex>:
+ * Write a 32-bit hexadecimal value to the UART.
+ * @param value The value to write
+ * @param nibbles The number of nibbles to display
+ * @param newline Whether to add a newline character
+ */
+void print_hex(unsigned int value, unsigned int nibbles, unsigned int newline) {
+10000030:	fd010113          	addi	sp,sp,-48 # 2000ffd0 <_ebss+0xffc4>
+10000034:	02112623          	sw	ra,44(sp)
+10000038:	02812423          	sw	s0,40(sp)
+1000003c:	03010413          	addi	s0,sp,48
+10000040:	fca42e23          	sw	a0,-36(s0)
+10000044:	fcb42c23          	sw	a1,-40(s0)
+10000048:	fcc42a23          	sw	a2,-44(s0)
+    for (int i = (nibbles - 1); i >= 0; i--) {
+1000004c:	fd842783          	lw	a5,-40(s0)
+10000050:	fff78793          	addi	a5,a5,-1
+10000054:	fef42623          	sw	a5,-20(s0)
+10000058:	0580006f          	j	100000b0 <print_hex+0x80>
+        unsigned int nibble = (value >> (i * 4)) & 0xF;
+1000005c:	fec42783          	lw	a5,-20(s0)
+10000060:	00279793          	slli	a5,a5,0x2
+10000064:	fdc42703          	lw	a4,-36(s0)
+10000068:	00f757b3          	srl	a5,a4,a5
+1000006c:	00f7f793          	andi	a5,a5,15
+10000070:	fef42423          	sw	a5,-24(s0)
+        if (nibble < 10)
+10000074:	fe842703          	lw	a4,-24(s0)
+10000078:	00900793          	li	a5,9
+1000007c:	00e7ec63          	bltu	a5,a4,10000094 <print_hex+0x64>
+            uart_write_byte('0' + nibble);
+10000080:	fe842783          	lw	a5,-24(s0)
+10000084:	03078793          	addi	a5,a5,48
+10000088:	00078513          	mv	a0,a5
+1000008c:	190000ef          	jal	1000021c <uart_write_byte>
+10000090:	0140006f          	j	100000a4 <print_hex+0x74>
+        else
+            uart_write_byte('A' + (nibble - 10));
+10000094:	fe842783          	lw	a5,-24(s0)
+10000098:	03778793          	addi	a5,a5,55
+1000009c:	00078513          	mv	a0,a5
+100000a0:	17c000ef          	jal	1000021c <uart_write_byte>
+    for (int i = (nibbles - 1); i >= 0; i--) {
+100000a4:	fec42783          	lw	a5,-20(s0)
+100000a8:	fff78793          	addi	a5,a5,-1
+100000ac:	fef42623          	sw	a5,-20(s0)
+100000b0:	fec42783          	lw	a5,-20(s0)
+100000b4:	fa07d4e3          	bgez	a5,1000005c <print_hex+0x2c>
+    }
+    if (newline) {
+100000b8:	fd442783          	lw	a5,-44(s0)
+100000bc:	00078a63          	beqz	a5,100000d0 <print_hex+0xa0>
+        uart_write_byte('\r'); // Optional: newline for readability
+100000c0:	00d00513          	li	a0,13
+100000c4:	158000ef          	jal	1000021c <uart_write_byte>
+        uart_write_byte('\n');
+100000c8:	00a00513          	li	a0,10
+100000cc:	150000ef          	jal	1000021c <uart_write_byte>
+    }
+
+}
+100000d0:	00000013          	nop
+100000d4:	02c12083          	lw	ra,44(sp)
+100000d8:	02812403          	lw	s0,40(sp)
+100000dc:	03010113          	addi	sp,sp,48
+100000e0:	00008067          	ret
+
+100000e4 <print_str>:
+
+void print_str(const char *str)
+{
+100000e4:	fe010113          	addi	sp,sp,-32
+100000e8:	00112e23          	sw	ra,28(sp)
+100000ec:	00812c23          	sw	s0,24(sp)
+100000f0:	02010413          	addi	s0,sp,32
+100000f4:	fea42623          	sw	a0,-20(s0)
+    while (*str)
+100000f8:	0200006f          	j	10000118 <print_str+0x34>
+    {
+        uart_write_byte(*str);
+100000fc:	fec42783          	lw	a5,-20(s0)
+10000100:	0007c783          	lbu	a5,0(a5)
+10000104:	00078513          	mv	a0,a5
+10000108:	114000ef          	jal	1000021c <uart_write_byte>
+        str++;
+1000010c:	fec42783          	lw	a5,-20(s0)
+10000110:	00178793          	addi	a5,a5,1
+10000114:	fef42623          	sw	a5,-20(s0)
+    while (*str)
+10000118:	fec42783          	lw	a5,-20(s0)
+1000011c:	0007c783          	lbu	a5,0(a5)
+10000120:	fc079ee3          	bnez	a5,100000fc <print_str+0x18>
+    }
+}
+10000124:	00000013          	nop
+10000128:	00000013          	nop
+1000012c:	01c12083          	lw	ra,28(sp)
+10000130:	01812403          	lw	s0,24(sp)
+10000134:	02010113          	addi	sp,sp,32
+10000138:	00008067          	ret
+
+1000013c <delay_cycles>:
+/**
+ * Delay for a given number of cycles by inserting nops.
+ * @param cycles The number of fetch cycles to delay
+ */
+void delay_cycles (unsigned int cycles) 
+{
+1000013c:	fe010113          	addi	sp,sp,-32
+10000140:	00812e23          	sw	s0,28(sp)
+10000144:	02010413          	addi	s0,sp,32
+10000148:	fea42623          	sw	a0,-20(s0)
+    while (cycles--) {
+1000014c:	0080006f          	j	10000154 <delay_cycles+0x18>
+        asm("nop");
+10000150:	00000013          	nop
+    while (cycles--) {
+10000154:	fec42783          	lw	a5,-20(s0)
+10000158:	fff78713          	addi	a4,a5,-1
+1000015c:	fee42623          	sw	a4,-20(s0)
+10000160:	fe0798e3          	bnez	a5,10000150 <delay_cycles+0x14>
+    }   
+}
+10000164:	00000013          	nop
+10000168:	00000013          	nop
+1000016c:	01c12403          	lw	s0,28(sp)
+10000170:	02010113          	addi	sp,sp,32
+10000174:	00008067          	ret
+
+10000178 <set_leds>:
+ * Set the LEDs to a given value.
+ * For the CMOD A7 there is only 2 LEDs.
+ * @param value The value to set the LEDs to
+ */
+void set_leds (unsigned int value)
+{
+10000178:	fd010113          	addi	sp,sp,-48
+1000017c:	02812623          	sw	s0,44(sp)
+10000180:	03010413          	addi	s0,sp,48
+10000184:	fca42e23          	sw	a0,-36(s0)
+    volatile unsigned int *leds = (volatile unsigned int *)LED_ADDR;
+10000188:	400007b7          	lui	a5,0x40000
+1000018c:	fef42623          	sw	a5,-20(s0)
+    *leds = value;
+10000190:	fec42783          	lw	a5,-20(s0)
+10000194:	fdc42703          	lw	a4,-36(s0)
+10000198:	00e7a023          	sw	a4,0(a5) # 40000000 <_stack_top+0x1fff0000>
+}
+1000019c:	00000013          	nop
+100001a0:	02c12403          	lw	s0,44(sp)
+100001a4:	03010113          	addi	sp,sp,48
+100001a8:	00008067          	ret
+
+100001ac <set_counter>:
+
+/**
+ * Reset the timer counter by parsing a value of 1.
+ */
+void set_counter() {
+100001ac:	fe010113          	addi	sp,sp,-32
+100001b0:	00812e23          	sw	s0,28(sp)
+100001b4:	02010413          	addi	s0,sp,32
+    volatile unsigned int *timer = (volatile unsigned int *)TIMER_ADDR;
+100001b8:	400007b7          	lui	a5,0x40000
+100001bc:	00478793          	addi	a5,a5,4 # 40000004 <_stack_top+0x1fff0004>
+100001c0:	fef42623          	sw	a5,-20(s0)
+    *timer = 1;
+100001c4:	fec42783          	lw	a5,-20(s0)
+100001c8:	00100713          	li	a4,1
+100001cc:	00e7a023          	sw	a4,0(a5)
+}
+100001d0:	00000013          	nop
+100001d4:	01c12403          	lw	s0,28(sp)
+100001d8:	02010113          	addi	sp,sp,32
+100001dc:	00008067          	ret
+
+100001e0 <read_timer>:
+
+/**
+ * Read the current value of the timer counter.
+ * @param value Pointer to store the read timer value
+ */
+void read_timer(unsigned int *value) {
+100001e0:	fd010113          	addi	sp,sp,-48
+100001e4:	02812623          	sw	s0,44(sp)
+100001e8:	03010413          	addi	s0,sp,48
+100001ec:	fca42e23          	sw	a0,-36(s0)
+    volatile unsigned int *timer = (volatile unsigned int *)TIMER_ADDR;
+100001f0:	400007b7          	lui	a5,0x40000
+100001f4:	00478793          	addi	a5,a5,4 # 40000004 <_stack_top+0x1fff0004>
+100001f8:	fef42623          	sw	a5,-20(s0)
+    *value = *timer;
+100001fc:	fec42783          	lw	a5,-20(s0)
+10000200:	0007a703          	lw	a4,0(a5)
+10000204:	fdc42783          	lw	a5,-36(s0)
+10000208:	00e7a023          	sw	a4,0(a5)
+}
+1000020c:	00000013          	nop
+10000210:	02c12403          	lw	s0,44(sp)
+10000214:	03010113          	addi	sp,sp,48
+10000218:	00008067          	ret
+
+1000021c <uart_write_byte>:
+
+/**
+ * Write a byte to the UART.
+ * @param c The byte to write
+ */
+void uart_write_byte(unsigned int c) {
+1000021c:	fd010113          	addi	sp,sp,-48
+10000220:	02812623          	sw	s0,44(sp)
+10000224:	03010413          	addi	s0,sp,48
+10000228:	fca42e23          	sw	a0,-36(s0)
+    volatile unsigned int *uart = (volatile unsigned int *)UART_ADDR;
+1000022c:	400007b7          	lui	a5,0x40000
+10000230:	00878793          	addi	a5,a5,8 # 40000008 <_stack_top+0x1fff0008>
+10000234:	fef42623          	sw	a5,-20(s0)
+    while (*uart & (1u << 8)) { }     /* wait while TX busy */
+10000238:	00000013          	nop
+1000023c:	fec42783          	lw	a5,-20(s0)
+10000240:	0007a783          	lw	a5,0(a5)
+10000244:	1007f793          	andi	a5,a5,256
+10000248:	fe079ae3          	bnez	a5,1000023c <uart_write_byte+0x20>
+    *uart = c;
+1000024c:	fec42783          	lw	a5,-20(s0)
+10000250:	fdc42703          	lw	a4,-36(s0)
+10000254:	00e7a023          	sw	a4,0(a5)
+}
+10000258:	00000013          	nop
+1000025c:	02c12403          	lw	s0,44(sp)
+10000260:	03010113          	addi	sp,sp,48
+10000264:	00008067          	ret
+
+10000268 <read_xadc>:
+
+/**
+ * Read the current value from the XADC.
+ * @param value Pointer to store the read XADC value
+ */
+void read_xadc(unsigned int *value) {
+10000268:	fd010113          	addi	sp,sp,-48
+1000026c:	02812623          	sw	s0,44(sp)
+10000270:	03010413          	addi	s0,sp,48
+10000274:	fca42e23          	sw	a0,-36(s0)
+    volatile unsigned int *xadc = (volatile unsigned int *)XADC_ADDR;
+10000278:	400007b7          	lui	a5,0x40000
+1000027c:	02078793          	addi	a5,a5,32 # 40000020 <_stack_top+0x1fff0020>
+10000280:	fef42623          	sw	a5,-20(s0)
+    *value = *xadc;
+10000284:	fec42783          	lw	a5,-20(s0)
+10000288:	0007a703          	lw	a4,0(a5)
+1000028c:	fdc42783          	lw	a5,-36(s0)
+10000290:	00e7a023          	sw	a4,0(a5)
+}
+10000294:	00000013          	nop
+10000298:	02c12403          	lw	s0,44(sp)
+1000029c:	03010113          	addi	sp,sp,48
+100002a0:	00008067          	ret
+
+100002a4 <spi_write_reg>:
+ * Write a value to a SPI register.
+ * @param addr The address of the SPI register to write to (see hal.h for register addresses)
+ * @param value The value to write to the register
+ */
+void spi_write_reg(unsigned int addr, unsigned int value)
+{
+100002a4:	fe010113          	addi	sp,sp,-32
+100002a8:	00812e23          	sw	s0,28(sp)
+100002ac:	02010413          	addi	s0,sp,32
+100002b0:	fea42623          	sw	a0,-20(s0)
+100002b4:	feb42423          	sw	a1,-24(s0)
+    *(volatile unsigned int*)addr = value;
+100002b8:	fec42783          	lw	a5,-20(s0)
+100002bc:	fe842703          	lw	a4,-24(s0)
+100002c0:	00e7a023          	sw	a4,0(a5)
+}
+100002c4:	00000013          	nop
+100002c8:	01c12403          	lw	s0,28(sp)
+100002cc:	02010113          	addi	sp,sp,32
+100002d0:	00008067          	ret
+
+100002d4 <spi_read_reg>:
+ * Read a value from a SPI register.
+ * @param addr The address of the SPI register to read from (see hal.h for register addresses)
+ * @return The value read from the register
+ */
+unsigned int spi_read_reg(unsigned int addr)
+{
+100002d4:	fe010113          	addi	sp,sp,-32
+100002d8:	00812e23          	sw	s0,28(sp)
+100002dc:	02010413          	addi	s0,sp,32
+100002e0:	fea42623          	sw	a0,-20(s0)
+    return *(volatile unsigned int*)addr;
+100002e4:	fec42783          	lw	a5,-20(s0)
+100002e8:	0007a783          	lw	a5,0(a5)
+}
+100002ec:	00078513          	mv	a0,a5
+100002f0:	01c12403          	lw	s0,28(sp)
+100002f4:	02010113          	addi	sp,sp,32
+100002f8:	00008067          	ret
+
+100002fc <spi_configure>:
+ * @param div The clock divider (0-128) to set for the SPI controller
+ */
+void spi_configure(unsigned int clk_mode,
+              unsigned int data_mode,
+              unsigned int div)
+{
+100002fc:	fd010113          	addi	sp,sp,-48
+10000300:	02112623          	sw	ra,44(sp)
+10000304:	02812423          	sw	s0,40(sp)
+10000308:	03010413          	addi	s0,sp,48
+1000030c:	fca42e23          	sw	a0,-36(s0)
+10000310:	fcb42c23          	sw	a1,-40(s0)
+10000314:	fcc42a23          	sw	a2,-44(s0)
+    unsigned int ctrl = 0;
+10000318:	fe042623          	sw	zero,-20(s0)
+
+    ctrl |= (clk_mode & 0x3) << 1;
+1000031c:	fdc42783          	lw	a5,-36(s0)
+10000320:	00179793          	slli	a5,a5,0x1
+10000324:	0067f793          	andi	a5,a5,6
+10000328:	fec42703          	lw	a4,-20(s0)
+1000032c:	00f767b3          	or	a5,a4,a5
+10000330:	fef42623          	sw	a5,-20(s0)
+    ctrl |= (data_mode & 0x1) << 3;
+10000334:	fd842783          	lw	a5,-40(s0)
+10000338:	00379793          	slli	a5,a5,0x3
+1000033c:	0087f793          	andi	a5,a5,8
+10000340:	fec42703          	lw	a4,-20(s0)
+10000344:	00f767b3          	or	a5,a4,a5
+10000348:	fef42623          	sw	a5,-20(s0)
+    ctrl |= (div & 0xFF) << 8;
+1000034c:	fd442783          	lw	a5,-44(s0)
+10000350:	00879713          	slli	a4,a5,0x8
+10000354:	000107b7          	lui	a5,0x10
+10000358:	fff78793          	addi	a5,a5,-1 # ffff <_boot_table+0xffff>
+1000035c:	00f777b3          	and	a5,a4,a5
+10000360:	fec42703          	lw	a4,-20(s0)
+10000364:	00f767b3          	or	a5,a4,a5
+10000368:	fef42623          	sw	a5,-20(s0)
+
+    spi_write_reg(SPI_CNTRL_ADDR, ctrl);
+1000036c:	fec42583          	lw	a1,-20(s0)
+10000370:	400007b7          	lui	a5,0x40000
+10000374:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+10000378:	f2dff0ef          	jal	100002a4 <spi_write_reg>
+}
+1000037c:	00000013          	nop
+10000380:	02c12083          	lw	ra,44(sp)
+10000384:	02812403          	lw	s0,40(sp)
+10000388:	03010113          	addi	sp,sp,48
+1000038c:	00008067          	ret
+
+10000390 <spi_set_slave>:
+/**
+ * Set the specified slave(s) by writing to the SPI control register.
+ * @param slave A bitmask of the slave(s)
+ */
+void spi_set_slave(unsigned int slave)
+{
+10000390:	fd010113          	addi	sp,sp,-48
+10000394:	02112623          	sw	ra,44(sp)
+10000398:	02812423          	sw	s0,40(sp)
+1000039c:	03010413          	addi	s0,sp,48
+100003a0:	fca42e23          	sw	a0,-36(s0)
+    unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
+100003a4:	400007b7          	lui	a5,0x40000
+100003a8:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+100003ac:	f29ff0ef          	jal	100002d4 <spi_read_reg>
+100003b0:	fea42623          	sw	a0,-20(s0)
+    ctrl &= ~(0xFFu << 16);
+100003b4:	fec42703          	lw	a4,-20(s0)
+100003b8:	ff0107b7          	lui	a5,0xff010
+100003bc:	fff78793          	addi	a5,a5,-1 # ff00ffff <_stack_top+0xdeffffff>
+100003c0:	00f777b3          	and	a5,a4,a5
+100003c4:	fef42623          	sw	a5,-20(s0)
+    ctrl |= (slave & 0xFF) << 16;
+100003c8:	fdc42783          	lw	a5,-36(s0)
+100003cc:	01079713          	slli	a4,a5,0x10
+100003d0:	00ff07b7          	lui	a5,0xff0
+100003d4:	00f777b3          	and	a5,a4,a5
+100003d8:	fec42703          	lw	a4,-20(s0)
+100003dc:	00f767b3          	or	a5,a4,a5
+100003e0:	fef42623          	sw	a5,-20(s0)
+    spi_write_reg(SPI_CNTRL_ADDR, ctrl);
+100003e4:	fec42583          	lw	a1,-20(s0)
+100003e8:	400007b7          	lui	a5,0x40000
+100003ec:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+100003f0:	eb5ff0ef          	jal	100002a4 <spi_write_reg>
+}
+100003f4:	00000013          	nop
+100003f8:	02c12083          	lw	ra,44(sp)
+100003fc:	02812403          	lw	s0,40(sp)
+10000400:	03010113          	addi	sp,sp,48
+10000404:	00008067          	ret
+
+10000408 <spi_remove_slave>:
+/**
+ * Remove the specified slave(s) by writing to the SPI control register.
+ * @param slave A bitmask of the slave(s)
+ */
+void spi_remove_slave(unsigned int slave)
+{
+10000408:	fd010113          	addi	sp,sp,-48
+1000040c:	02112623          	sw	ra,44(sp)
+10000410:	02812423          	sw	s0,40(sp)
+10000414:	03010413          	addi	s0,sp,48
+10000418:	fca42e23          	sw	a0,-36(s0)
+    unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
+1000041c:	400007b7          	lui	a5,0x40000
+10000420:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+10000424:	eb1ff0ef          	jal	100002d4 <spi_read_reg>
+10000428:	fea42623          	sw	a0,-20(s0)
+    ctrl &= ~(0xFFu << 16);
+1000042c:	fec42703          	lw	a4,-20(s0)
+10000430:	ff0107b7          	lui	a5,0xff010
+10000434:	fff78793          	addi	a5,a5,-1 # ff00ffff <_stack_top+0xdeffffff>
+10000438:	00f777b3          	and	a5,a4,a5
+1000043c:	fef42623          	sw	a5,-20(s0)
+    ctrl |= ((~slave) & 0xFF) << 16;
+10000440:	fdc42783          	lw	a5,-36(s0)
+10000444:	fff7c793          	not	a5,a5
+10000448:	01079713          	slli	a4,a5,0x10
+1000044c:	00ff07b7          	lui	a5,0xff0
+10000450:	00f777b3          	and	a5,a4,a5
+10000454:	fec42703          	lw	a4,-20(s0)
+10000458:	00f767b3          	or	a5,a4,a5
+1000045c:	fef42623          	sw	a5,-20(s0)
+    spi_write_reg(SPI_CNTRL_ADDR, ctrl);
+10000460:	fec42583          	lw	a1,-20(s0)
+10000464:	400007b7          	lui	a5,0x40000
+10000468:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+1000046c:	e39ff0ef          	jal	100002a4 <spi_write_reg>
+10000470:	00000013          	nop
+10000474:	02c12083          	lw	ra,44(sp)
+10000478:	02812403          	lw	s0,40(sp)
+1000047c:	03010113          	addi	sp,sp,48
+10000480:	00008067          	ret
+
+10000484 <main>:
+#include "../inc/hal.h"
+#include "../inc/driver.h"
+
+int main() {
+10000484:	fd010113          	addi	sp,sp,-48
+10000488:	02112623          	sw	ra,44(sp)
+1000048c:	02812423          	sw	s0,40(sp)
+10000490:	03010413          	addi	s0,sp,48
+    set_counter();
+10000494:	d19ff0ef          	jal	100001ac <set_counter>
+
+    int timer = 0x0;
+10000498:	fc042e23          	sw	zero,-36(s0)
+    int counter = 0x0;
+1000049c:	fe042623          	sw	zero,-20(s0)
+    int xadc_value = 0x0;
+100004a0:	fe042423          	sw	zero,-24(s0)
+    int busy = 0x0;
+100004a4:	fe042223          	sw	zero,-28(s0)
+
+    spi_configure(0, 0, 120);
+100004a8:	07800613          	li	a2,120
+100004ac:	00000593          	li	a1,0
+100004b0:	00000513          	li	a0,0
+100004b4:	e49ff0ef          	jal	100002fc <spi_configure>
+    spi_set_slave(1);
+100004b8:	00100513          	li	a0,1
+100004bc:	ed5ff0ef          	jal	10000390 <spi_set_slave>
+
+    while (1) {
+        read_timer(&timer);        
+100004c0:	fdc40793          	addi	a5,s0,-36
+100004c4:	00078513          	mv	a0,a5
+100004c8:	d19ff0ef          	jal	100001e0 <read_timer>
+    
+        if (timer > 1000000) {
+100004cc:	fdc42703          	lw	a4,-36(s0)
+100004d0:	000f47b7          	lui	a5,0xf4
+100004d4:	24078793          	addi	a5,a5,576 # f4240 <_boot_table+0xf4240>
+100004d8:	fee7d4e3          	bge	a5,a4,100004c0 <main+0x3c>
+            set_counter();
+100004dc:	cd1ff0ef          	jal	100001ac <set_counter>
+            counter++;
+100004e0:	fec42783          	lw	a5,-20(s0)
+100004e4:	00178793          	addi	a5,a5,1
+100004e8:	fef42623          	sw	a5,-20(s0)
+            print_str("Counter: 0x");
+100004ec:	200007b7          	lui	a5,0x20000
+100004f0:	00078513          	mv	a0,a5
+100004f4:	bf1ff0ef          	jal	100000e4 <print_str>
+            print_hex(counter, 4, 1); 
+100004f8:	fec42783          	lw	a5,-20(s0)
+100004fc:	00100613          	li	a2,1
+10000500:	00400593          	li	a1,4
+10000504:	00078513          	mv	a0,a5
+10000508:	b29ff0ef          	jal	10000030 <print_hex>
+            
+            // if NOT busy
+            busy = spi_read_reg(SPI_STATUS_ADDR) & 0x1;
+1000050c:	400007b7          	lui	a5,0x40000
+10000510:	01478513          	addi	a0,a5,20 # 40000014 <_stack_top+0x1fff0014>
+10000514:	dc1ff0ef          	jal	100002d4 <spi_read_reg>
+10000518:	00050793          	mv	a5,a0
+1000051c:	0017f793          	andi	a5,a5,1
+10000520:	fef42223          	sw	a5,-28(s0)
+            if (!busy) {
+10000524:	fe442783          	lw	a5,-28(s0)
+10000528:	f8079ce3          	bnez	a5,100004c0 <main+0x3c>
+                // Write TX data 
+                spi_write_reg(SPI_TX_DAT_ADDR, counter);
+1000052c:	fec42783          	lw	a5,-20(s0)
+10000530:	00078593          	mv	a1,a5
+10000534:	400007b7          	lui	a5,0x40000
+10000538:	01878513          	addi	a0,a5,24 # 40000018 <_stack_top+0x1fff0018>
+1000053c:	d69ff0ef          	jal	100002a4 <spi_write_reg>
+
+                // Trigger start pulse
+                unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
+10000540:	400007b7          	lui	a5,0x40000
+10000544:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+10000548:	d8dff0ef          	jal	100002d4 <spi_read_reg>
+1000054c:	fea42023          	sw	a0,-32(s0)
+                spi_write_reg(SPI_CNTRL_ADDR, ctrl | 0x1);
+10000550:	fe042783          	lw	a5,-32(s0)
+10000554:	0017e793          	ori	a5,a5,1
+10000558:	00078593          	mv	a1,a5
+1000055c:	400007b7          	lui	a5,0x40000
+10000560:	01078513          	addi	a0,a5,16 # 40000010 <_stack_top+0x1fff0010>
+10000564:	d41ff0ef          	jal	100002a4 <spi_write_reg>
+        read_timer(&timer);        
+10000568:	f59ff06f          	j	100004c0 <main+0x3c>

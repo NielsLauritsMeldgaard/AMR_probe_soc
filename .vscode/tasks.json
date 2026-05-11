@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+		"label": "Clean and Build RISC-V Firmware (WSL)",
+		"type": "shell",
+		"command": "wsl",
+		"args": [
+			"sh", "-c", "rm -rf * && cmake .. && make"
+		],
+		"options": {
+			"cwd": "${workspaceFolder}/project/sw/build"
+		},
+		"group": {
+			"kind": "build",
+		},
+		"problemMatcher": []
+    },
+	{
+		"label": "Upload to FPGA",
+		"type": "shell",
+		"command": "${workspaceFolder}/project/scripts/upload_program.bat",
+		"group": {
+			"kind": "build",
+		},
+		"problemMatcher": []
+		}
+  ]
+}

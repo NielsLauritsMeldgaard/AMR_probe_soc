@@ -1,0 +1,9 @@
+# Ignore everything in vivado folder
+vivado/*
+
+# But not the project file(s)
+!vivado/**/*.xpr
+
+# Optionally, keep README or other docs
+!vivado/**/*.md
+!vivado/**/*.txt
