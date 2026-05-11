@@ -1,9 +1,42 @@
-# Ignore everything in vivado folder
-vivado/*
+# Ignore all Vivado subfolders and files, but not the .xpr file or the vivado folder itself
+vivado/**/
+vivado/**/*.cache/
+vivado/**/*.gen/
+vivado/**/*.hw/
+vivado/**/*.ip_user_files/
+vivado/**/*.runs/
+vivado/**/*.sim/
+vivado/**/*.srcs/
+vivado/**/*.log
+vivado/**/*.jou
+vivado/**/*.str
+vivado/**/*.tcl
+vivado/**/*.xml
+vivado/**/*.backup
+vivado/**/*.webtalk
+vivado/**/*.wdb
+vivado/**/*.data
+vivado/**/*.temp
+vivado/**/*.tmp
+vivado/**/*.html
+vivado/**/*.csv
+vivado/**/*.xmsgs
+vivado/**/*.pb
+vivado/**/*.db
+vivado/**/*.bgn
+vivado/**/*.bit
+vivado/**/*.bin
+vivado/**/*.dcp
+vivado/**/*.prj
+vivado/**/*.v
+vivado/**/*.sv
+vivado/**/*.xdc
+vivado/**/*.mem
+vivado/**/*.elf
+vivado/**/*.o
+vivado/**/*.log
+vivado/**/*.txt
+vivado/**/*.md
 
-# But not the project file(s)
+# Do not ignore .xpr project file
 !vivado/**/*.xpr
-
-# Optionally, keep README or other docs
-!vivado/**/*.md
-!vivado/**/*.txt
