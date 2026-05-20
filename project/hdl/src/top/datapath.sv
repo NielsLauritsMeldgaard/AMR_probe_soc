@@ -20,7 +20,44 @@ module datapath #(
     input  logic        MISO,
     output logic        MOSI,
     output logic        SCLK,
-    output logic [2:0]  SPI_SS,
+
+    // --- accelerometer ---
+    output logic accel_cs,  // Accelerometer Chip Select (active low) (SPI slave select)
+    input logic accel_int1,  // Accelerometer Interrupt Signal 1
+    input logic accel_int2,  // Accelerometer Interrupt Signal 2
+
+    // --- LoRa ---
+    output logic lora_cs,  // LoRa Chip Select (active low) (SPI slave select)
+    output logic lora_rst, // LoRa Reset (active low)
+    input logic lora_dio, // LoRa DIO0 Interrupt Signal
+    output logic rf_sw // 1 receive mode, 0 transmit mode (controls RF switch for LoRa antenna)
+    input logic lora_busy // LoRa Busy Signal
+
+    // --- ADC2 ---
+    output logic adc2_cs,  // ADC Chip Select (active low) (SPI slave select)
+    input logic  adc2_busy, // ADC busy signal (active high, high when conversion is in progress)
+    output logic adc2_shdn // ADC Shutdown Control (tied low for always on)
+    output logic adc2_cnv // ADC Convert Start Signal
+
+
+    // --- DAC --- 
+    // Asynchronous Reset Input. The RESET input is falling edge sensitive.
+    output logic        dac_rst, // active high reset for DAC (tied to 1 so that DAC is always active)
+    // Active Low Control Input. This is the frame synchronization signal for the input data. When SYNC goes low, data is transferred in on the falling edges of the next 24 clocks.
+    output logic        dac_sync, // tied to 0 so that DAC is always ready to receive data
+    output logic        dac_sclk, // DAC serial clock input (max 50MHz)
+    output logic        dac_sdata, // DAC serial data input
+    // LDAC can be operated in two modes, asynchronously and synchronously. Pulsing this pin low allows any or all DAC registers to be updated if the input registers have new data. This allows all DAC outputs to simultaneously update. This pin can also be tied permanently low.
+    output logic        dac_ldac, // tied to 0 for synchronous mode (DAC outputs update immediately when new data is received)
+
+    // --- ADC1 ---
+    output logic adc1_cs,  // ADC Chip Select (active low) (SPI slave select)
+    input logic  adc1_busy, // ADC busy signal (active high, high when conversion is in progress)
+    output logic adc1_sdi, // ADC Serial Data Input (MOSI)
+    input logic [2:0]  adc1_sdo, // ADC Serial Data Output (MISO) - 3 bits for 3 channels
+    output logic adc1_sclk, // ADC Serial Clock Input
+    output logic adc1_cnv, // ADC Convert Start Signal 
+    output logic adc1_shdn // ADC Shutdown Control
     
     // Turn off RGB led (no IO driver yet, so we just tie it off)
     output logic led0_b, led0_g, led0_r,
@@ -29,9 +66,26 @@ module datapath #(
     input logic vauxp4,
     input logic vauxn4
 );
+    // Tie off RGB LED (no IO driver yet, so we just tie it off)
     assign led0_b = 1;
     assign led0_g = 1;
     assign led0_r = 1;
+
+    // @TODO: Add DAC and ADC logic
+    // Hardcode DAC control signals for now
+    assign dac_rst = 0; // DAC always active
+    assign dac_sync = 0; // DAC always ready to receive data
+    assign dac_ldac = 0; // synchronous mode (DAC outputs update immediately when new data is received)
+    assign dac_sclk = 0; // DAC serial clock input (max 50MHz)
+    assign dac_sdata = 0; // DAC serial data input
+
+    // Hardcode ADC control signals for now
+    assign adc1_cs = 1; // ADC chip select (active low)
+    assign adc1_sdi = 0; // ADC serial data input (MOSI)
+    assign adc1_sclk = 0; // ADC serial clock input
+    assign adc1_cnv = 0; // ADC convert start signal
+    assign adc1_shdn = 0; // ADC shutdown control (tied low for always on)
+
 
     // --- Global Control Signals ---
     logic stall;
