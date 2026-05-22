@@ -19,6 +19,8 @@
 // 0110       | 0x18           | 0x4000_0018       | SPI Register 2
 // 0111       | 0x1C           | 0x4000_001C       | SPI Register 3
 // 1000       | 0x20           | 0x4000_0020       | XADC readout
+// 1001       | 0x24           | 0x4000_0024       | read/write GPO-register: [22'b0, JA[9:6], adc2_shdn, adc2_cs, lora_rf_sw, lora_cs, accel_cs]
+// 1010       | 0x28           | 0x4000_0028       | read only  GPI-register: [23'b0, JA[8:5], adc2_busy, lora_busy, lora_dio, accel_int2, accel_int1]
 // ------------------------------------------------------------
 //
 // SPI Base Address: 0x4000_0010
@@ -31,7 +33,10 @@
 // Note: Addresses are word-aligned (byte offsets increment by 4).
 // ------------------------------------------------------------
 
-module io_manager (
+module io_manager #(
+        parameter GPO_WIDTH = 10, // Number of general purpose output pins
+        parameter GPI_WIDTH = 9 // Number of general purpose input pins    
+    )(
     input  logic        clk, rst,
     // --- Wishbone Slave Interface (CPU Side) ---
     input  logic [31:0] wb_adr_i,   // Address
@@ -42,17 +47,18 @@ module io_manager (
     output logic        wb_ack_o,   // Ready
 
     // --- Physical FPGA Pins ---
-    output logic [1:0]  leds,
-    input  logic        buttons,
-    output logic        uart_tx,
-    input  logic        uart_rx,
+    output logic [1:0]              leds,
+    input  logic                    buttons,
+    output logic                    uart_tx,
+    input  logic                    uart_rx,
+    input  logic [GPI_WIDTH-1:0]    gpio_in,
+    output  logic [GPO_WIDTH-1:0]   gpio_out,         
     
     // SPI Pins
     input  logic        MISO,
     output logic        MOSI,
     output logic        SCLK,
-    output logic [2:0]  SPI_SS,
-
+    
     // XADC pins
     input logic vauxp4,
     input logic vauxn4    
@@ -71,6 +77,8 @@ module io_manager (
     logic [TIMER_W-1:0] timer_o;    
     logic timer_set;
     logic [11:0] adc_value;
+    logic [GPI_WIDTH-1:0] gpio_in_reg;
+    logic [GPO_WIDTH-1:0] gpio_out_reg;
     
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
@@ -88,7 +96,7 @@ module io_manager (
     spi_controller spi_unit (
         .clk(clk), .rst(rst),
         .dat_i(wb_dat_i), .adr_i(wb_adr_i[3:2]), .stb_i(wb_stb_i && spi_sel), .we_i(wb_we_i && spi_sel), .dat_o(dat_o_spi),
-        .MISO(MISO), .MOSI(MOSI), .SCLK(SCLK), .SS(SPI_SS)
+        .MISO(MISO), .MOSI(MOSI), .SCLK(SCLK)
     );
     
     // 1us timer at 12 MHz
@@ -117,6 +125,7 @@ module io_manager (
         spi_sel = (word_index[3:2] == 2'b01);
         timer_set = (write_stb && (word_index == 4'b0001) && (wb_dat_i == 32'h1));
         //timer_set = 0;
+        gpio_out = gpio_out_reg;
        
 
         case (word_index) 
@@ -129,6 +138,8 @@ module io_manager (
             4'b0110: wb_dat_o_next = dat_o_spi; // SPI status register
             4'b0111: wb_dat_o_next = dat_o_spi; // Reserved
             4'b1000: wb_dat_o_next = {20'b0, adc_value}; // XADC readout
+            4'b1001: wb_dat_o_next = {23'b0, gpio_out_reg}; // GPO register (read current register output status) 
+            4'b1010: wb_dat_o_next = {24'b0, gpio_in_reg};  // GPO register (read GPI status)
             default: wb_dat_o_next = 32'h0;      
         endcase 
      end 
@@ -139,14 +150,19 @@ module io_manager (
             wb_ack_o <= 1'b0;
             leds     <= 2'h0;
             wb_dat_o <= 32'b0;
+            gpio_in_reg <= 9'b0;
+            gpio_out_reg <= 10'b0;
         end else begin
             // multi-Cycle Ack logic
             wb_ack_o <= wb_stb_i;
             wb_dat_o <= wb_dat_o_next;
+            gpio_in_reg <= gpio_in;
 
             // Simple Output Registers
             if (write_stb && (word_index == 4'b0000))
                 leds <= wb_dat_i[1:0];
+            if (write_stb && (word_index == 4'b1001))
+                gpio_out_reg <= wb_dat_i[GPO_WIDTH-1:0];
         end
     end
     

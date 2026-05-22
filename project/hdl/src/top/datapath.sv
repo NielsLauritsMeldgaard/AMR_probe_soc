@@ -7,7 +7,9 @@ module datapath #(
     // Leave some extra headroom 
     parameter INSTRUCTION_MEM_WORDS = 32768, // 131072 bytes or 128 KB  
     parameter DATA_MEM_WORDS = 16384, // 65536 bytes or 64 KB
-    parameter BOOTLOADER_MEM_WORDS = 84
+    parameter BOOTLOADER_MEM_WORDS = 84,
+    parameter GPO_WIDTH = 10, // Number of general purpose output pins
+    parameter GPI_WIDTH = 9 // Number of general purpose input pins
 )(
     input logic clk, 
     input logic rst,
@@ -17,27 +19,36 @@ module datapath #(
     input  logic        buttons,
     output logic        uart_tx,
     input  logic        uart_rx,
-    input  logic        MISO,
-    output logic        MOSI,
-    output logic        SCLK,
+    output logic        driver_set, driver_rst,
+    input  logic [3:0]  JA_in,  // JA Header (4-pin input)
+    output logic [3:0]  JA_out, // JA Header (4-pin output)
 
     // --- accelerometer ---
     output logic accel_cs,  // Accelerometer Chip Select (active low) (SPI slave select)
+    output logic accel_mosi,
+    input logic accel_miso,
+    output logic accel_sclk,
     input logic accel_int1,  // Accelerometer Interrupt Signal 1
     input logic accel_int2,  // Accelerometer Interrupt Signal 2
 
     // --- LoRa ---
     output logic lora_cs,  // LoRa Chip Select (active low) (SPI slave select)
     output logic lora_rst, // LoRa Reset (active low)
+    output logic lora_mosi,
+    input logic lora_miso,
+    output logic lora_sclk,
     input logic lora_dio, // LoRa DIO0 Interrupt Signal
-    output logic rf_sw // 1 receive mode, 0 transmit mode (controls RF switch for LoRa antenna)
-    input logic lora_busy // LoRa Busy Signal
+    output logic lora_rf_sw, // 1 receive mode, 0 transmit mode (controls RF switch for LoRa antenna)
+    input logic lora_busy, // LoRa Busy Signal
 
     // --- ADC2 ---
     output logic adc2_cs,  // ADC Chip Select (active low) (SPI slave select)
     input logic  adc2_busy, // ADC busy signal (active high, high when conversion is in progress)
-    output logic adc2_shdn // ADC Shutdown Control (tied low for always on)
-    output logic adc2_cnv // ADC Convert Start Signal
+    output logic adc2_shdn, // ADC Shutdown Control (tied low for always on)
+    output logic adc2_cnv, // ADC Convert Start Signal
+    output logic adc2_mosi,
+    input logic adc2_miso,
+    output logic adc2_sclk,
 
 
     // --- DAC --- 
@@ -46,7 +57,7 @@ module datapath #(
     // Active Low Control Input. This is the frame synchronization signal for the input data. When SYNC goes low, data is transferred in on the falling edges of the next 24 clocks.
     output logic        dac_sync, // tied to 0 so that DAC is always ready to receive data
     output logic        dac_sclk, // DAC serial clock input (max 50MHz)
-    output logic        dac_sdata, // DAC serial data input
+    output logic        dac_sdin, // DAC serial data input
     // LDAC can be operated in two modes, asynchronously and synchronously. Pulsing this pin low allows any or all DAC registers to be updated if the input registers have new data. This allows all DAC outputs to simultaneously update. This pin can also be tied permanently low.
     output logic        dac_ldac, // tied to 0 for synchronous mode (DAC outputs update immediately when new data is received)
 
@@ -57,7 +68,7 @@ module datapath #(
     input logic [2:0]  adc1_sdo, // ADC Serial Data Output (MISO) - 3 bits for 3 channels
     output logic adc1_sclk, // ADC Serial Clock Input
     output logic adc1_cnv, // ADC Convert Start Signal 
-    output logic adc1_shdn // ADC Shutdown Control
+    output logic adc1_shdn, // ADC Shutdown Control
     
     // Turn off RGB led (no IO driver yet, so we just tie it off)
     output logic led0_b, led0_g, led0_r,
@@ -65,28 +76,7 @@ module datapath #(
     // XADC pins
     input logic vauxp4,
     input logic vauxn4
-);
-    // Tie off RGB LED (no IO driver yet, so we just tie it off)
-    assign led0_b = 1;
-    assign led0_g = 1;
-    assign led0_r = 1;
-
-    // @TODO: Add DAC and ADC logic
-    // Hardcode DAC control signals for now
-    assign dac_rst = 0; // DAC always active
-    assign dac_sync = 0; // DAC always ready to receive data
-    assign dac_ldac = 0; // synchronous mode (DAC outputs update immediately when new data is received)
-    assign dac_sclk = 0; // DAC serial clock input (max 50MHz)
-    assign dac_sdata = 0; // DAC serial data input
-
-    // Hardcode ADC control signals for now
-    assign adc1_cs = 1; // ADC chip select (active low)
-    assign adc1_sdi = 0; // ADC serial data input (MOSI)
-    assign adc1_sclk = 0; // ADC serial clock input
-    assign adc1_cnv = 0; // ADC convert start signal
-    assign adc1_shdn = 0; // ADC shutdown control (tied low for always on)
-
-
+);    
     // --- Global Control Signals ---
     logic stall;
     logic br_dec; 
@@ -103,7 +93,7 @@ module datapath #(
     logic [31:0] s0bb_adr, s0bb_dat;
     logic        s0bb_stb, s0bb_ack;
     
-    // Slave 1: Instruction RAM    
+    // --- Slave 1: Instruction RAM ---    
     logic [31:0] s1im_adr, s1im_dat;
     logic        s1im_stb, s1im_ack;
 
@@ -118,12 +108,12 @@ module datapath #(
     logic [3:0]  s0_sel;
     logic        s0_we, s0_stb, s0_ack;
 
-    // Slave 1: IO Subsystem
+    // --- Slave 1: IO Subsystem ---
     logic [31:0] s1_adr, s1_dat_w, s1_dat_r;
     logic [3:0]  s1_sel;
     logic        s1_we, s1_stb, s1_ack;
     
-    // Slave 2: instruction ram
+    // --- Slave 2: instruction ram ---
     logic [31:0] s2_adr, s2_dat_w, s2_dat_r;
     logic [3:0]  s2_sel;
     logic        s2_we, s2_stb, s2_ack;
@@ -135,19 +125,78 @@ module datapath #(
     logic [1:0]  addr_offset_id;
     logic        mToR, rW, rW_wb, aluSrc_id, branch_id;
 
-    // --- NEW: JALR Connection Wires ---
+    // --- JALR Connection Wires ---
     logic        is_jal_or_jalr_id, jal_or_jalr_ex;
     logic [31:0] jal_or_jalr_target_ex;
-
-    // --- 1. GLOBAL STALL LOGIC ---
-    //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
-    // iwb_ack is now 1, so we only stall when Data Memory (dwb) is busy
-    //assign stall = (1'b1 && !iwb_ack) || ((mToR | dwb_we) && !dwb_ack);
-    assign stall = 0;
     
-    // Sync rst signal
+    // --- Sync rst signal ---
     logic rst_meta, rst_sync_internal;
     logic rst_sync;
+
+    // --- SPI and GPIO connections ---
+    logic [GPO_WIDTH-1:0] gpio_out; // General Purpose Output from IO manager to peripherals
+    logic [GPI_WIDTH-1:0] gpio_in;   // General Purpose Input from peripherals to IO manager
+    logic MISO, MOSI, SCLK, SPI_SS; // SPI signals (shared between multiple peripherals, so we route them as separate signals rather than dedicated peripheral outputs)
+
+    always_comb begin
+        // --- GLOBAL STALL LOGIC ---
+        //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
+        // iwb_ack is now 1, so we only stall when Data Memory (dwb) is busy
+        //assign stall = (1'b1 && !iwb_ack) || ((mToR | dwb_we) && !dwb_ack);
+        stall   =   0;
+
+        // Tie off RGB LED (no IO driver yet, so we just tie it off)
+        led0_b  =   1;
+        led0_g  =   1;
+        led0_r  =   1;
+
+        // --- HMC DSP block--
+        // @TODO: Add DAC and ADC logic
+        // Hardcode DAC control signals for now
+        dac_rst     =   0; // DAC always active
+        dac_sync    =   0; // DAC always ready to receive data
+        dac_ldac    =   0; // synchronous mode (DAC outputs update immediately when new data is received)
+        dac_sclk    =   0; // DAC serial clock input (max 50MHz)
+        dac_sdin    =   0; // DAC serial data input
+        // Hardcode ADC control signals for now
+        adc1_cs     =   1; // ADC chip select (active low)
+        adc1_sdi    =   0; // ADC serial data input (MOSI)
+        adc1_sclk   =   0; // ADC serial clock input
+        adc1_cnv    =   0; // ADC convert start signal
+        adc1_shdn   =   0; // ADC shutdown control (tied low for always on)
+        // Set reset signals
+        driver_rst  =   0;
+        driver_set  =   0;
+
+        // --- SPI and GPIO connections ---
+        // Connect GPO register from IO manager to physical pins
+        accel_cs        =       gpio_out[0]; 
+        lora_cs         =       gpio_out[1]; 
+        lora_rf_sw      =       gpio_out[2];
+        adc2_cs         =       gpio_out[3];
+        adc2_shdn       =       gpio_out[4];
+        adc2_cnv        =       gpio_out[5];
+        JA_out          =       gpio_out[9:6];
+        // Connect GPI physical pins to IO manager
+        gpio_in[0]      =       accel_int1;
+        gpio_in[1]      =       accel_int2;
+        gpio_in[2]      =       lora_dio;
+        gpio_in[3]      =       lora_busy;
+        gpio_in[4]      =       adc2_busy;
+        gpio_in[8:5]    =       JA_in;
+        // Distribute SPI signals from IO manager to peripherals (shared SPI bus)
+        adc2_sclk       =       SCLK;
+        lora_sclk       =       SCLK;
+        accel_sclk      =       SCLK;
+        adc2_mosi       =       MOSI;
+        lora_mosi       =       MOSI;
+        accel_mosi      =       MOSI; 
+        MISO            =       adc2_miso || lora_miso || accel_miso;
+        // lora hardcoded values
+        lora_rst        =       0;
+        
+    end
+
     
     always_ff @(posedge clk) begin
             rst_meta <= rst;
@@ -244,7 +293,9 @@ module datapath #(
     );
 
     // --- 6. SLAVE 1: IO PERIPHERAL MANAGER ---
-    io_manager peripherals (
+    io_manager #(.GPO_WIDTH(GPO_WIDTH), .GPI_WIDTH(GPI_WIDTH)) 
+    peripherals
+    (
         .clk(clk), .rst(rst_sync),
         // wishbone slave interface (CPU side)
         .wb_adr_i(s1_adr), .wb_dat_i(s1_dat_w), .wb_stb_i(s1_stb),
@@ -252,7 +303,8 @@ module datapath #(
         // Physical Pins
         .leds(leds), .buttons(buttons),
         .uart_tx(uart_tx), .uart_rx(uart_rx),
-        .MISO(MISO), .MOSI(MOSI), .SCLK(SCLK), .SPI_SS(SPI_SS),
+        .MISO(MISO), .MOSI(MOSI), .SCLK(SCLK),
+        .gpio_out(gpio_out), .gpio_in(gpio_in),
         // XADC pins
         .vauxp4(vauxp4), .vauxn4(vauxn4)
     );
