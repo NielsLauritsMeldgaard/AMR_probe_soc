@@ -1,0 +1,198 @@
+`timescale 1ns / 1ps
+
+
+// Module: mag_processor
+// Description: Synchronous demodulator and accumulator for the AMR 
+//              magnetometer. Receives ADC samples from the ADC controller. Accumulates
+//              SET and RESET phase samples separately, then on the falling
+//              edge of sample_en computes the field estimate by subtracting
+//              the two accumulators and outputting the result.
+//
+
+
+
+module mag_processor #(
+    parameter int ACC_WIDTH     = 32,   // Accumulator width in bits
+    parameter int N_CHANNELS    = 3,     // Number of ADC channels
+    parameter int SAMPLES = 1024
+    
+)(
+    input  logic        clk,
+    input  logic        rst,
+
+    // From ADC controller
+    input  logic [15:0] ch0_data,
+    input  logic [15:0] ch1_data,
+    input  logic [15:0] ch2_data,
+    input  logic        data_valid,     // One cycle strobe per conversion
+    input  logic        data_phase,     // 0 = SET, 1 = RESET
+    input  logic        final_sample,
+
+    // From SR driver
+    input  logic        sample_en,      // High during sampling window
+
+    // Output field estimates - one per channel
+    output logic signed [ACC_WIDTH-1:0] field_ch0,
+    output logic signed [ACC_WIDTH-1:0] field_ch1,
+    output logic signed [ACC_WIDTH-1:0] field_ch2,
+    output logic [31:0] n_set,
+    output logic [31:0] n_rst,
+    output logic                        result_valid  // One cycle strobe
+);
+    localparam int SHIFT_BITS = $clog2(SAMPLES); 
+
+    // SET and RESET accumulators for each channel
+    logic signed [ACC_WIDTH-1:0] acc_set0_q, acc_set0_d;
+    logic signed [ACC_WIDTH-1:0] acc_set1_q, acc_set1_d;
+    logic signed [ACC_WIDTH-1:0] acc_set2_q, acc_set2_d;
+
+    logic signed [ACC_WIDTH-1:0] acc_rst0_q, acc_rst0_d;
+    logic signed [ACC_WIDTH-1:0] acc_rst1_q, acc_rst1_d;
+    logic signed [ACC_WIDTH-1:0] acc_rst2_q, acc_rst2_d;
+
+    // Sample counters to track how many samples in each phase
+    logic [31:0] cnt_set_q, cnt_set_d;
+    logic [31:0] cnt_rst_q, cnt_rst_d;
+
+    // Output registers
+    logic signed [ACC_WIDTH-1:0] field0_q, field0_d;
+    logic signed [ACC_WIDTH-1:0] field1_q, field1_d;
+    logic signed [ACC_WIDTH-1:0] field2_q, field2_d;
+    logic [31:0]                 nsamp_q,  nsamp_d;
+    logic                        valid_q,  valid_d;
+
+    // sample_en edge detection to detect falling edge to trigger output
+    
+    logic [1:0] final_samp_d, final_samp_q;
+    
+
+
+    always_comb begin
+        // Defaults - hold all registers
+        acc_set0_d = acc_set0_q;
+        acc_set1_d = acc_set1_q;
+        acc_set2_d = acc_set2_q;
+
+        acc_rst0_d = acc_rst0_q;
+        acc_rst1_d = acc_rst1_q;
+        acc_rst2_d = acc_rst2_q;
+  
+        cnt_set_d  = cnt_set_q;
+        cnt_rst_d  = cnt_rst_q;
+        
+        field0_d   = field0_q;
+        field1_d   = field1_q;
+        field2_d   = field2_q;
+ 
+        nsamp_d    = nsamp_q;
+        valid_d    = 1'b0;
+        final_samp_d = final_samp_q;
+        
+        if (final_sample) begin
+            final_samp_d = final_samp_q + 1;
+        end
+
+        // Accumulate incoming samples into SET or RESET accumulators
+        // based on phase signal from SR driver
+        if (data_valid && sample_en) begin
+            if (!data_phase) begin
+                // SET phase, accumulate positively
+                acc_set0_d = acc_set0_q +  ACC_WIDTH'(signed'({1'b0, ch0_data}));
+                acc_set1_d = acc_set1_q +  ACC_WIDTH'(signed'({1'b0, ch1_data}));
+                acc_set2_d = acc_set2_q +  ACC_WIDTH'(signed'({1'b0, ch2_data}));
+                 
+
+            end else begin
+                // RESET phase, accumulate into separate register
+                acc_rst0_d = acc_rst0_q + ACC_WIDTH'(signed'({1'b0, ch0_data}));
+                acc_rst1_d = acc_rst1_q + ACC_WIDTH'(signed'({1'b0, ch1_data}));
+                acc_rst2_d = acc_rst2_q + ACC_WIDTH'(signed'({1'b0, ch2_data}));
+                
+                
+                
+            end
+        end
+
+        // On falling edge of sample_en - both windows complete
+        // Compute field estimate: (ACC_SET - ACC_RST)
+        // Reset accumulators for next cycle
+        if (final_samp_q == 2) begin
+            // Subtract accumulators - offset cancels, field doubles
+            field0_d = (acc_set0_q - acc_rst0_q) >>> SHIFT_BITS;
+            field1_d = (acc_set1_q - acc_rst1_q) >>> SHIFT_BITS;
+            field2_d = (acc_set2_q - acc_rst2_q) >>> SHIFT_BITS;
+
+
+            // Assert result valid for one cycle
+            valid_d  = 1'b1;
+
+            // Clear accumulators and counters for next measurement cycle
+            acc_set0_d   = '0;
+            acc_set1_d   = '0;
+            acc_set2_d   = '0;
+
+            acc_rst0_d   = '0;
+            acc_rst1_d   = '0;
+            acc_rst2_d   = '0;
+            cnt_set_d    = '0;
+            cnt_rst_d    = '0;
+            final_samp_d = '0;
+        end
+    end
+
+    // -------------------------------------------------------------------------
+    // Sequential block
+    // -------------------------------------------------------------------------
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            acc_set0_q      <= '0;
+            acc_set1_q      <= '0;
+            acc_set2_q      <= '0;
+
+            acc_rst0_q      <= '0;
+            acc_rst1_q      <= '0;
+            acc_rst2_q      <= '0;
+
+            cnt_set_q       <= '0;
+            cnt_rst_q       <= '0;
+            
+            field0_q        <= '0;
+            field1_q        <= '0;
+            field2_q        <= '0;
+
+            nsamp_q         <= '0;
+            valid_q         <= 1'b0;
+            
+        end else begin
+            acc_set0_q      <= acc_set0_d;
+            acc_set1_q      <= acc_set1_d;
+            acc_set2_q      <= acc_set2_d;
+ 
+            acc_rst0_q      <= acc_rst0_d;
+            acc_rst1_q      <= acc_rst1_d;
+            acc_rst2_q      <= acc_rst2_d;
+
+            cnt_set_q       <= cnt_set_d;
+            cnt_rst_q       <= cnt_rst_d;
+            
+            field0_q        <= field0_d;
+            field1_q        <= field1_d;
+            field2_q        <= field2_d;
+
+            nsamp_q         <= nsamp_d;
+            valid_q         <= valid_d;
+            sample_en_prev_q <= sample_en;
+        end
+    end
+
+    // -------------------------------------------------------------------------
+    // Output assignments
+    // -------------------------------------------------------------------------
+    assign field_ch0   = field0_q;
+    assign field_ch1   = field1_q;
+    assign field_ch2   = field2_q;
+
+    assign n_samples   = nsamp_q;
+    assign result_valid = valid_q;
+
+endmodule
