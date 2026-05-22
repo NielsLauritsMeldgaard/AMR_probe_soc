@@ -1,8 +1,7 @@
 `timescale 1ps/1ps
 
 module spi_controller #(
-    parameter MAX_DIV  = 128,
-    parameter N_SLAVES = 3
+    parameter MAX_DIV  = 128
 )(
     input  logic clk, rst,
 
@@ -16,8 +15,7 @@ module spi_controller #(
     // SPI lines
     input  logic MISO,
     output logic MOSI,
-    output logic SCLK,
-    output logic [N_SLAVES-1:0] SS
+    output logic SCLK
 );
 
     /*================ REGISTERS ================*/
@@ -28,7 +26,6 @@ module spi_controller #(
     logic [1:0]  clk_mode_reg,  clk_mode_reg_next;
     logic        data_mode_reg, data_mode_reg_next;
     logic [$clog2(MAX_DIV)-1:0]  div_reg, div_reg_next;
-    logic [$clog2(N_SLAVES)-1:0] slave_sel_reg, slave_sel_reg_next;
 
     logic start_reg, start_reg_next;
     logic busy_reg, busy_reg_next;
@@ -39,7 +36,7 @@ module spi_controller #(
 
     /*================ ADDRESS MAP ================*/
 
-    localparam CTRL_ADDR   = 2'd0; // Control register: [0] Start, [2:1] clk_mode, [3] data_mode, [15:8] div, [23:16] slave_sel
+    localparam CTRL_ADDR   = 2'd0; // Control register: [0] Start, [2:1] clk_mode, [3] data_mode, [15:8] div
     localparam STATUS_ADDR = 2'd1; // Status register: [0] busy, [1] data_valid
     localparam TX_ADDR     = 2'd2; // Transmit data register: [15:0] data to transmit
     localparam RX_ADDR     = 2'd3; // Receive data register: [15:0] received data (read-only, clears data_valid on read)
@@ -74,7 +71,6 @@ module spi_controller #(
         clk_mode_reg_next   = clk_mode_reg;
         data_mode_reg_next  = data_mode_reg;
         div_reg_next        = div_reg;
-        slave_sel_reg_next  = slave_sel_reg;
 
         start_reg_next      = 1'b0;      // pulse
         busy_reg_next       = busy_reg;
@@ -91,7 +87,6 @@ module spi_controller #(
                     clk_mode_reg_next   = dat_i[2:1];
                     data_mode_reg_next  = dat_i[3];
                     div_reg_next        = dat_i[15:8];
-                    slave_sel_reg_next  = dat_i[23:16];
                 end
 
                 TX_ADDR:
@@ -106,7 +101,6 @@ module spi_controller #(
             CTRL_ADDR:
                 dat_o = {
                     8'b0,
-                    slave_sel_reg,
                     div_reg,
                     4'b0,
                     data_mode_reg,
@@ -136,7 +130,6 @@ module spi_controller #(
 
         /*================ SLAVE SELECT =================*/
 
-        SS = ~(1'b1 << slave_sel_reg);   // active low, direct control
     end
 
 
@@ -149,7 +142,6 @@ module spi_controller #(
             clk_mode_reg   <= 0;
             data_mode_reg  <= 0;
             div_reg        <= 1;
-            slave_sel_reg  <= 0;
             start_reg      <= 0;
             busy_reg       <= 0;
             data_valid_reg <= 0;
@@ -159,7 +151,6 @@ module spi_controller #(
             clk_mode_reg   <= clk_mode_reg_next;
             data_mode_reg  <= data_mode_reg_next;
             div_reg        <= div_reg_next;
-            slave_sel_reg  <= slave_sel_reg_next;
             start_reg      <= start_reg_next;
             busy_reg       <= busy_reg_next;
             data_valid_reg <= data_valid_reg_next;
