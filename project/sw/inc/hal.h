@@ -1,6 +1,7 @@
 #ifndef HAL_H
 #define HAL_H
 
+// Addresses for memory-mapped I/O
 #define IO_BASE         0x40000000u
 #define LED_ADDR        (IO_BASE + 0x0)
 #define TIMER_ADDR      (IO_BASE + 0x4)
@@ -12,19 +13,50 @@
 #define SPI_TX_DAT_ADDR (SPI_BASE_ADDR + 0x8)
 #define SPI_RX_DAT_ADDR (SPI_BASE_ADDR + 0xC)
 #define XADC_ADDR       (IO_BASE + 0x20)
+#define GPO_ADDR        (IO_BASE + 0x24)
+#define GPI_ADDR        (IO_BASE + 0x28)
 
-// Currently 3-slaves supported
+// Define a bool type
+#define HIGH  0x1
+#define LOW   0x0
+
+// GPIO bit definitions for GPO register
+//          Output                 ||       BIT         ||      IO       ||
+    //=========================================================================
+#define     GPO_ACCEL_CS_BIT                 0          //     P08      
+#define     GPO_LORA_CS_BIT                  1          //     P14
+#define     GPO_LORA_RF_SW_BIT               2          //     P21
+#define     GPO_ADC2_CS_BIT                  3          //     P39
+#define     GPO_ADC2_SHDN_BIT                4          //     P48
+#define     GPO_ADC2_CNV_BIT                 5          //     P47
+#define     GPO_JA7_BIT                      6          //     JA07
+#define     GPO_JA8_BIT                      7          //     JA08
+#define     GPO_JA9_BIT                      8          //     JA09
+#define     GPO_JA10_BIT                     9          //     JA10
+
+// GPIO bit definitions for GPI register
+//          Input                  ||       BIT         ||      IO       ||
+//=========================================================================
+#define     GPI_ACCEL_INT1_BIT               0          //     P13
+#define     GPI_ACCEL_INT2_BIT               1          //     P12
+#define     GPI_LORA_DIO_BIT                 2          //     P23
+#define     GPI_LORA_BUSY_BIT                3          //     P22
+#define     GPI_ADC2_BUSY_BIT                4          //     P40
+#define     GPI_JA1_BIT                      5          //     JA01
+#define     GPI_JA2_BIT                      6          //     JA02
+#define     GPI_JA3_BIT                      7          //     JA03
+#define     GPI_JA4_BIT                      8          //     JA04
+
 
 void set_leds(unsigned int value);
 void delay_cycles(unsigned int cycles);
 void uart_write_byte(unsigned int c);
 void set_counter(void);
-void read_timer(unsigned int *value);
+unsigned int read_timer();
 void read_xadc(unsigned int *value);
 void spi_write_reg(unsigned int addr, unsigned int value);
 unsigned int spi_read_reg(unsigned int addr);
-void spi_configure(unsigned int clk_mode, unsigned int data_mode, unsigned int div);
-void spi_set_slave(unsigned int slave);
-void spi_clear_slave(unsigned int slave);
+void digital_write(unsigned int value, unsigned int IO_BIT);
+unsigned int digital_read(unsigned int IO_BIT);
 
 #endif // HAL_H

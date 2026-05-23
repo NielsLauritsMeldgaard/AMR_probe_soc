@@ -34,7 +34,7 @@ target_compile_options(firmware.elf PRIVATE
     -nostdlib
     -nostartfiles
     -static
-    -O0
+    -O2
     -g
     -msmall-data-limit=0
 )

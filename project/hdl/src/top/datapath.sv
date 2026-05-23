@@ -163,7 +163,7 @@ module datapath #(
         adc1_sdi    =   0; // ADC serial data input (MOSI)
         adc1_sclk   =   0; // ADC serial clock input
         adc1_cnv    =   0; // ADC convert start signal
-        adc1_shdn   =   0; // ADC shutdown control (tied low for always on)
+        adc1_shdn   =   1; // ADC shutdown control (tied low for always on)
         // Set reset signals
         driver_rst  =   0;
         driver_set  =   0;
@@ -192,8 +192,9 @@ module datapath #(
         lora_mosi       =       MOSI;
         accel_mosi      =       MOSI; 
         MISO            =       adc2_miso || lora_miso || accel_miso;
-        // lora hardcoded values
-        lora_rst        =       0;
+        //MISO            =       lora_miso;
+        // lora hardcoded value
+        lora_rst        =       1; // Lora always active
         
     end
 
