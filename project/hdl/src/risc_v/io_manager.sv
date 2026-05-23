@@ -21,6 +21,10 @@
 // 1000       | 0x20           | 0x4000_0020       | XADC readout
 // 1001       | 0x24           | 0x4000_0024       | read/write GPO-register: [22'b0, JA[9:6], adc2_shdn, adc2_cs, lora_rf_sw, lora_cs, accel_cs]
 // 1010       | 0x28           | 0x4000_0028       | read only  GPI-register: [23'b0, JA[8:5], adc2_busy, lora_busy, lora_dio, accel_int2, accel_int1]
+// 1011       | 0x2C           | 0x4000_002C       | write only (write a 1 to address to toggle)
+// 1100       | 0x30           | 0x4000_0030       | read only from 1'st -axis mag-field
+// 1101       | 0x34           | 0x4000_0034       | read only from 2'nd -axis mag-field
+// 1110       | 0x38           | 0x4000_0038       | read only from 3'rd -axis mag-field
 // ------------------------------------------------------------
 //
 // SPI Base Address: 0x4000_0010
@@ -61,25 +65,40 @@ module io_manager #(
     
     // XADC pins
     input logic vauxp4,
-    input logic vauxn4    
+    input logic vauxn4,  
+    
+    //ADC1 (HMC) pins 
+    output logic adc1_cs,  // ADC Chip Select (active low) (SPI slave select)
+    input logic  adc1_busy, // ADC busy signal (active high, high when conversion is in progress)
+    output logic adc1_sdi, // ADC Serial Data Input (MOSI)
+    input logic [2:0]  adc1_sdo, // ADC Serial Data Output (MISO) - 3 bits for 3 channels
+    output logic adc1_sclk, // ADC Serial Clock Input
+    output logic adc1_cnv, // ADC Convert Start Signal 
+    output logic adc1_shdn, // ADC Shutdown Control  
+    
+    // sr driver pins
+    output logic        driver_set, driver_rst
 );
     // --- Internal Wires ---
-    logic [3:0] word_index;
-    logic       write_stb, read_stb;
-    logic       uart_we, uart_re;
-    logic [7:0] u_rx_data;
-    logic       u_rx_valid, u_tx_busy;
-    logic       d_buttons;
-    logic [31:0] wb_dat_o_next;
-    logic [31:0] dat_o_spi;
-    logic spi_sel;
-    localparam TIMER_W = 32; // bit width of timer value
-    logic [TIMER_W-1:0] timer_o;    
-    logic timer_set;
-    logic [11:0] adc_value;
+    logic [3:0]           word_index;
+    logic                 write_stb, read_stb;
+    logic                 uart_we, uart_re;
+    logic [7:0]           u_rx_data;
+    logic                 u_rx_valid, u_tx_busy;
+    logic                 d_buttons;
+    logic [31:0]          wb_dat_o_next;
+    logic [31:0]          dat_o_spi;
+    logic                 spi_sel;
+    localparam            TIMER_W = 32; // bit width of timer value
+    logic [TIMER_W-1:0]   timer_o;    
+    logic                 timer_set;
+    logic [11:0]          adc_value;
     logic [GPI_WIDTH-1:0] gpio_in_reg;
     logic [GPO_WIDTH-1:0] gpio_out_reg;
-    
+    logic                 toggle;
+    logic [31:0]          field0_data; // magnetic fields data from mag_datapath
+    logic [31:0]          field1_data;
+    logic [31:0]          field2_data;
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
         .clk(clk), .rst(rst),
@@ -112,6 +131,25 @@ module io_manager #(
         .adc_value(adc_value) 
     );
     
+        mag_sensor_processor_unit(
+        .clk(clk),
+        .rst(rst),
+        .toggle(toggle),
+        .set_sig(driver_set),
+        .reset_sig(driver_rst),
+        .adc_cnv(adc1_cnv),
+        .adc_sck(adc1_sclk),
+        .adc_sdi(adc1_adi),
+        .adc_cs_n(adc1_cs),
+        .adc_busy(adc1_busy),
+        .adc_sdo0(adc1_sdo[0]),
+        .adc_sdo1(adc1_sdo[1]),
+        .adc_sdo2(adc1_sdo[2]),
+        .field_ch0(field_ch0),
+        .field_ch1(field_ch1),
+        .field_ch2(field_ch2)
+    );
+
 
      always_comb begin
         // defaults 
@@ -124,6 +162,7 @@ module io_manager #(
         uart_re = (read_stb && (word_index == 4'b10));
         spi_sel = (word_index[3:2] == 2'b01);
         timer_set = (write_stb && (word_index == 4'b0001) && (wb_dat_i == 32'h1));
+        toggle = (write_stb && (word_index == 4'b1011) && (wb_dat_i == 32'h1));
         //timer_set = 0;
         gpio_out = gpio_out_reg;
        
@@ -140,6 +179,10 @@ module io_manager #(
             4'b1000: wb_dat_o_next = {20'b0, adc_value}; // XADC readout
             4'b1001: wb_dat_o_next = {23'b0, gpio_out_reg}; // GPO register (read current register output status) 
             4'b1010: wb_dat_o_next = {24'b0, gpio_in_reg};  // GPO register (read GPI status)
+            4'b1100: wb_dat_o_next = field1_data;
+            4'b1101: wb_dat_o_next = field2_data;
+            4'b1110: wb_dat_o_next = field2_data;
+            
             default: wb_dat_o_next = 32'h0;      
         endcase 
      end 

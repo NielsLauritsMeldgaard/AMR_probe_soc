@@ -307,9 +307,20 @@ module datapath #(
         .MISO(MISO), .MOSI(MOSI), .SCLK(SCLK),
         .gpio_out(gpio_out), .gpio_in(gpio_in),
         // XADC pins
-        .vauxp4(vauxp4), .vauxn4(vauxn4)
+        .vauxp4(vauxp4), .vauxn4(vauxn4),
+        //sr logic driver pins
+        .driver_set(driver_set),
+        .driver_rst(driver_rst),
+        
+        .adc1_cnv(adc1_cnv),
+        .adc1_sclk(adc1_sclk),
+        .adc1_busy(adc1_busy),
+        .adc1_sdi(adc1_sdi),
+        .adc1_sdo(adc_sdo),
+        .adc1_shdn(adc1_shdn),
+        .adc1_cs(adc1_cs)
+        
     );
-
     // --- 7. SLAVE 0: DATA RAM ---
     data_memory #(.MEM_WORDS(DATA_MEM_WORDS)) data_mem (
         .clk(clk), .rst(rst_sync),
@@ -344,5 +355,5 @@ module datapath #(
         .branch_id(branch_id), .aluFwdSrc(aluFwdSrc),
         .fwd_mem_data(fwd_mem_data)
     );
-
+    
 endmodule
