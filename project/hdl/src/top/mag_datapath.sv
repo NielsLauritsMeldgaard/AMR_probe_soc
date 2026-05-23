@@ -11,7 +11,7 @@
 
 
 
-module mag_processor #(
+module mag_datapath #(
     parameter int ACC_WIDTH     = 32,   // Accumulator width in bits
     parameter int N_CHANNELS    = 3,     // Number of ADC channels
     parameter int SAMPLES = 1024
@@ -35,9 +35,7 @@ module mag_processor #(
     output logic signed [ACC_WIDTH-1:0] field_ch0,
     output logic signed [ACC_WIDTH-1:0] field_ch1,
     output logic signed [ACC_WIDTH-1:0] field_ch2,
-    output logic [31:0] n_set,
-    output logic [31:0] n_rst,
-    output logic                        result_valid  // One cycle strobe
+    output logic        result_valid  // One cycle strobe
 );
     localparam int SHIFT_BITS = $clog2(SAMPLES); 
 
@@ -69,23 +67,23 @@ module mag_processor #(
 
     always_comb begin
         // Defaults - hold all registers
-        acc_set0_d = acc_set0_q;
-        acc_set1_d = acc_set1_q;
-        acc_set2_d = acc_set2_q;
+        acc_set0_d   = acc_set0_q;
+        acc_set1_d   = acc_set1_q;
+        acc_set2_d   = acc_set2_q;
 
-        acc_rst0_d = acc_rst0_q;
-        acc_rst1_d = acc_rst1_q;
-        acc_rst2_d = acc_rst2_q;
-  
-        cnt_set_d  = cnt_set_q;
-        cnt_rst_d  = cnt_rst_q;
+        acc_rst0_d   = acc_rst0_q;
+        acc_rst1_d   = acc_rst1_q;
+        acc_rst2_d   = acc_rst2_q;
+    
+        cnt_set_d    = cnt_set_q;
+        cnt_rst_d    = cnt_rst_q;
         
-        field0_d   = field0_q;
-        field1_d   = field1_q;
-        field2_d   = field2_q;
+        field0_d     = field0_q;
+        field1_d     = field1_q;
+        field2_d     = field2_q;
  
-        nsamp_d    = nsamp_q;
-        valid_d    = 1'b0;
+        nsamp_d      = nsamp_q;
+        valid_d      = 1'b0;
         final_samp_d = final_samp_q;
         
         if (final_sample) begin
@@ -162,6 +160,7 @@ module mag_processor #(
 
             nsamp_q         <= '0;
             valid_q         <= 1'b0;
+            final_samp_q    <= '0;
             
         end else begin
             acc_set0_q      <= acc_set0_d;
@@ -181,7 +180,7 @@ module mag_processor #(
 
             nsamp_q         <= nsamp_d;
             valid_q         <= valid_d;
-            sample_en_prev_q <= sample_en;
+            final_samp_q    <= final_samp_d;
         end
     end
 

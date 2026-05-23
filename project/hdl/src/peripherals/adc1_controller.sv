@@ -31,15 +31,13 @@ module adc_controller(
     input  logic        sdo0,                  // Channel 0 data
     input  logic        sdo1,                  // Channel 1 data
     input  logic        sdo2,                  // Channel 2 data
-    
-
+    output logic        CS_n,                    // chip select is not used.
+    output logic        shdn,                  // shutdown power
     // Output to magnetometer processor
     output logic [15:0] ch0_data,
     output logic [15:0] ch1_data,
     output logic [15:0] ch2_data,
     output logic        data_valid,            // One cycle strobe per conversion
-    output logic        data_phase,             // Passes phase through to processor
-    output logic        CS_n,                    // chip select is not used.
     output logic        final_sample
 );
     localparam int CLK_FREQ_HZ    = 80_000_000;
@@ -281,6 +279,7 @@ module adc_controller(
     
     // Output assignments
     assign CS_n = 1'b0;  // Chip select is not in use since no bus sharing
+    assign shdn = 1'b0;
     assign ch0_data = ch0_q;
     assign ch1_data = ch1_q;
     assign ch2_data = ch2_q;
