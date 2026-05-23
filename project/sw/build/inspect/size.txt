@@ -1,2 +1,0 @@
-   text	   data	    bss	    dec	    hex	filename
-   1400	     36	      0	   1436	    59c	/mnt/c/Users/niels/OneDrive/Skrivebord/digital_design_code/Bsc_project/project/sw/build/firmware.elf
