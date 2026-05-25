@@ -21,7 +21,7 @@ module adc_controller(
 
     // SR driver interface
     input  logic        sample_en,             // From sr_driver: sample window (means a valid measurements from HMC)
-    input  logic        phase,                 // From sr_driver: 0=SET-phase, 1=RST-phase
+    
 
     // ADC physical interface
     output logic        cnv,                   // Convert start pulse
@@ -88,7 +88,7 @@ module adc_controller(
     logic [15:0] ch0_q, ch0_d;
     logic [15:0] ch1_q, ch1_d;
     logic [15:0] ch2_q, ch2_d;
-    logic        phase_q,  phase_d;
+    
     
     
 
@@ -113,7 +113,7 @@ module adc_controller(
      ch1_d          = ch1_q;
      ch2_d          = ch2_q;
      
-     phase_d        = phase_q;
+     
      
      scki_rising  = 1'b0;
      scki_falling = 1'b0;
@@ -150,7 +150,7 @@ module adc_controller(
                 if (!busy) begin
                     state_d = ST_SHIFT;
                     timer_d = 0;
-                    phase_d = phase;
+            
                     bit_d   = 4'd15;
                 end else if (timer_q >= BUSY_TIMEOUT - 1) begin
                     // Hardware fault - BUSY never fell
@@ -254,7 +254,7 @@ module adc_controller(
          ch1_q          <= 16'b0;
          ch2_q          <= 16'b0; 
        
-         phase_q        <= 0;        
+                
         end else begin
         state_q        <= state_d;
         timer_q        <= timer_d;
@@ -271,7 +271,7 @@ module adc_controller(
         ch0_q   <= ch0_d;
         ch1_q   <= ch1_d;
         ch2_q   <= ch2_d;
-        phase_q <= phase_d;
+ 
         
         end
     end
@@ -284,6 +284,5 @@ module adc_controller(
     assign ch1_data = ch1_q;
     assign ch2_data = ch2_q;
     assign data_valid = (state_q == ST_DONE);
-    assign data_phase = phase_q;
     assign sck = scki_q;
 endmodule
