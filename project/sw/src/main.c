@@ -6,11 +6,11 @@ int main() {
 
     int timer = 0x0;
     int counter = 0x0;
-    int xadc_value = 0x0;
-    int busy = 0x0;
+    // int xadc_value = 0x0;
+    // int busy = 0x0;
 
-    spi_configure(0, 0, 120);
-    spi_set_slave(1);
+    // spi_configure(0, 0, 120);
+    // spi_set_slave(1);
 
     while (1) {
         read_timer(&timer);        
@@ -22,15 +22,15 @@ int main() {
             print_hex(counter, 4, 1); 
             
             // if NOT busy
-            busy = spi_read_reg(SPI_STATUS_ADDR) & 0x1;
-            if (!busy) {
-                // Write TX data 
-                spi_write_reg(SPI_TX_DAT_ADDR, counter);
+            // busy = spi_read_reg(SPI_STATUS_ADDR) & 0x1;
+            // if (!busy) {
+            //     // Write TX data 
+            //     spi_write_reg(SPI_TX_DAT_ADDR, counter);
 
-                // Trigger start pulse
-                unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
-                spi_write_reg(SPI_CNTRL_ADDR, ctrl | 0x1);
-            }
+            //     // Trigger start pulse
+            //     unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
+            //     spi_write_reg(SPI_CNTRL_ADDR, ctrl | 0x1);
+            // }
         }
     }
     return 0;
