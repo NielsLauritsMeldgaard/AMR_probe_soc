@@ -15,6 +15,10 @@
 #define XADC_ADDR       (IO_BASE + 0x20)
 #define GPO_ADDR        (IO_BASE + 0x24)
 #define GPI_ADDR        (IO_BASE + 0x28)
+#define HMC_START_ADDR  (IO_BASE + 0x2C)
+#define HMC_1_OUT_ADDR  (IO_BASE + 0x30)
+#define HMC_2_OUT_ADDR  (IO_BASE + 0x34)
+#define HMC_3_OUT_ADDR  (IO_BASE + 0x38)
 
 // Define a bool type
 #define HIGH  0x1
@@ -58,5 +62,7 @@ void spi_write_reg(unsigned int addr, unsigned int value);
 unsigned int spi_read_reg(unsigned int addr);
 void digital_write(unsigned int value, unsigned int IO_BIT);
 unsigned int digital_read(unsigned int IO_BIT);
+void set_hmc();
+unsigned int read_hmc_axis(unsigned int axis);
 
 #endif // HAL_H
