@@ -9,6 +9,15 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property -dict { PACKAGE_PIN L17   IOSTANDARD LVCMOS33 } [get_ports { clk }]; #IO_L12P_T1_MRCC_14 Sch=gclk
 create_clock -add -name sys_clk_pin -period 83.33 -waveform {0 41.66} [get_ports { clk }];
 
+# Clock domain crossing constraints
+# 12MHz -> 80MHz (sample_en, reset)
+set_false_path -from [get_clocks sys_clk_pin] \
+               -to   [get_clocks clk_unbuf]
+
+# 80MHz -> 12MHz (result_valid, field outputs)
+set_false_path -from [get_clocks clk_unbuf] \
+               -to   [get_clocks sys_clk_pin]
+               
 ## LEDs
 set_property -dict { PACKAGE_PIN A17   IOSTANDARD LVCMOS33 } [get_ports { leds[0] }]; #IO_L12N_T1_MRCC_16 Sch=led[1]
 set_property -dict { PACKAGE_PIN C16   IOSTANDARD LVCMOS33 } [get_ports { leds[1] }]; #IO_L13P_T2_MRCC_16 Sch=led[2]

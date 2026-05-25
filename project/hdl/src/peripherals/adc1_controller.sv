@@ -88,11 +88,13 @@ module adc_controller(
     logic [15:0] ch0_q, ch0_d;
     logic [15:0] ch1_q, ch1_d;
     logic [15:0] ch2_q, ch2_d;
-    
-    
-    
+    logic sample_en_meta, sample_en_sync;
 
- 
+    always_ff @(posedge clk) begin  // clk = 80 MHz
+        sample_en_meta <= sample_en;   // from sr_driver (12 MHz domain)
+        sample_en_sync <= sample_en_meta;
+    end
+
 
     // FSM flow - the first data after softspan has been sent is garbage, a discard state is used to ignore data.
   // ST_IDLE -> ST_CNV_PULSE -> ST_WAIT_BUSY -> ST_SHIFT -> ST_QUIET -> ST_DISCARD -> ST_IDLE
@@ -112,8 +114,8 @@ module adc_controller(
      ch0_d          = ch0_q;
      ch1_d          = ch1_q;
      ch2_d          = ch2_q;
-     
-     
+     final_sample   = 0;
+     sample_count_d = 0;
      
      scki_rising  = 1'b0;
      scki_falling = 1'b0;
@@ -125,7 +127,7 @@ module adc_controller(
                
                scki_d    = 1'b0;
                
-               if (sample_en) begin
+               if (sample_en_sync) begin
                 state_d = ST_CNV_PULSE;
                 timer_d = 0;
                 end else begin
@@ -210,7 +212,7 @@ module adc_controller(
                 
                 scki_d    = 1'b0;
                 startup_done_d = 1'b1;  // flag: from now on ST_DONE instead
-                if (sample_en) begin
+                if (sample_en_sync) begin
                     state_d = ST_CNV_PULSE;
                 end else begin
                     state_d = ST_IDLE;
@@ -225,7 +227,7 @@ module adc_controller(
                 ch1_d   = sr1_q[15:0];
                 ch2_d   = sr2_q[15:0];
              
-                if (sample_en && sample_count_q < SAMPLES) begin
+                if (sample_en_sync && sample_count_q < SAMPLES) begin
                     state_d = ST_CNV_PULSE;
                     sample_count_d = sample_count_q + 1;
                 end else begin
@@ -253,7 +255,7 @@ module adc_controller(
          ch0_q          <= 16'b0;
          ch1_q          <= 16'b0;
          ch2_q          <= 16'b0; 
-       
+         sample_count_q <= 0;
                 
         end else begin
         state_q        <= state_d;
@@ -261,7 +263,7 @@ module adc_controller(
         bit_q          <= bit_d;
         scki_q         <= scki_d;
         startup_done_q <= startup_done_d;
-        
+        sample_count_q <= sample_count_d;
         //shift registers
         sr0_q <= sr0_d;
         sr1_q <= sr1_d;

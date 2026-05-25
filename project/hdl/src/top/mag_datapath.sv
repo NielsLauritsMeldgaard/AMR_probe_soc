@@ -48,15 +48,11 @@ module mag_datapath #(
     logic signed [ACC_WIDTH-1:0] acc_rst1_q, acc_rst1_d;
     logic signed [ACC_WIDTH-1:0] acc_rst2_q, acc_rst2_d;
 
-    // Sample counters to track how many samples in each phase
-    logic [31:0] cnt_set_q, cnt_set_d;
-    logic [31:0] cnt_rst_q, cnt_rst_d;
 
     // Output registers
     logic signed [ACC_WIDTH-1:0] field0_q, field0_d;
     logic signed [ACC_WIDTH-1:0] field1_q, field1_d;
     logic signed [ACC_WIDTH-1:0] field2_q, field2_d;
-    logic [31:0]                 nsamp_q,  nsamp_d;
     logic                        valid_q,  valid_d;
 
     // sample_en edge detection to detect falling edge to trigger output
@@ -75,14 +71,13 @@ module mag_datapath #(
         acc_rst1_d   = acc_rst1_q;
         acc_rst2_d   = acc_rst2_q;
     
-        cnt_set_d    = cnt_set_q;
-        cnt_rst_d    = cnt_rst_q;
+
         
         field0_d     = field0_q;
         field1_d     = field1_q;
         field2_d     = field2_q;
  
-        nsamp_d      = nsamp_q;
+      
         valid_d      = 1'b0;
         final_samp_d = final_samp_q;
         
@@ -132,8 +127,7 @@ module mag_datapath #(
             acc_rst0_d   = '0;
             acc_rst1_d   = '0;
             acc_rst2_d   = '0;
-            cnt_set_d    = '0;
-            cnt_rst_d    = '0;
+
             final_samp_d = '0;
         end
     end
@@ -151,14 +145,13 @@ module mag_datapath #(
             acc_rst1_q      <= '0;
             acc_rst2_q      <= '0;
 
-            cnt_set_q       <= '0;
-            cnt_rst_q       <= '0;
+
             
             field0_q        <= '0;
             field1_q        <= '0;
             field2_q        <= '0;
 
-            nsamp_q         <= '0;
+            
             valid_q         <= 1'b0;
             final_samp_q    <= '0;
             
@@ -171,14 +164,12 @@ module mag_datapath #(
             acc_rst1_q      <= acc_rst1_d;
             acc_rst2_q      <= acc_rst2_d;
 
-            cnt_set_q       <= cnt_set_d;
-            cnt_rst_q       <= cnt_rst_d;
+
             
             field0_q        <= field0_d;
             field1_q        <= field1_d;
             field2_q        <= field2_d;
 
-            nsamp_q         <= nsamp_d;
             valid_q         <= valid_d;
             final_samp_q    <= final_samp_d;
         end
@@ -191,7 +182,7 @@ module mag_datapath #(
     assign field_ch1   = field1_q;
     assign field_ch2   = field2_q;
 
-    assign n_samples   = nsamp_q;
+
     assign result_valid = valid_q;
 
 endmodule

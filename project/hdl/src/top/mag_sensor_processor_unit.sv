@@ -31,7 +31,7 @@ module mag_sensor_processor_unit (
     // Internal signals
 
     // Clock and reset
-    logic clk;                              // 80 MHz system clock from PLL
+   
     logic pll_locked;
     logic reset;
 
@@ -85,11 +85,28 @@ MMCME2_BASE #(
     .PWRDWN   (1'b0),
     .RST      (!rst)
 );
-
+logic reset_80_meta, reset_80_sync;
 BUFG clk_buf    (.I(clk_unbuf),    .O(clk_80));
 BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
 
+always_ff @(posedge clk_80 or posedge reset) begin
+    if (reset) begin
+        reset_80_meta <= 1'b1;
+        reset_80_sync <= 1'b1;
+    end else begin
+        reset_80_meta <= 1'b0;
+        reset_80_sync <= reset_80_meta;
+    end
+end
 
+    logic running;
+
+    always_ff @(posedge clk_12mhz or posedge reset) begin
+        if (reset)
+              running <= 1'b0;
+        else if (toggle)      // CPU write lathes for now
+             running <= 1'b1;
+    end
     // SR Driver
     sr_driver_gen #(
         .CLK_FREQ_HZ    (12_000_000),
@@ -104,14 +121,14 @@ BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
         .reset_sig (reset_sig),
         .sample_en (sample_en),
         .phase     (phase),
-        .start(toggle)
+        .start(running)
     );
 
 
     // ADC Controller
     adc_controller adc_ctrl_inst (
         .clk          (clk_80),
-        .rst          (reset),
+        .rst          (reset_80_sync),
         .sample_en    (sample_en),
         .cnv          (adc_cnv),
         .sck          (adc_sck),
@@ -136,7 +153,7 @@ BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
         .SAMPLES (1024)
     ) mag_data_inst (
         .clk          (clk_40),
-        .rst          (reset),
+        .rst          (reset_80_sync),
         .ch0_data     (adc_ch0),
         .ch1_data     (adc_ch1),
         .ch2_data     (adc_ch2),
