@@ -23,7 +23,7 @@ module mag_sensor_processor_unit (
     output logic signed [31:0] field_ch0,
     output logic signed [31:0] field_ch1,
     output logic signed [31:0] field_ch2,
-    
+  
     output logic               result_valid
 );
 
@@ -34,11 +34,13 @@ module mag_sensor_processor_unit (
    
     logic pll_locked;
     logic reset;
-
+    logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     // SR driver -> ADC controller and mag processor
     logic sample_en;
     logic phase;
-
+    logic running;
+    logic clkfb;
+    logic final_samp;
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
 
@@ -47,8 +49,8 @@ module mag_sensor_processor_unit (
 
     // Reset synchronisation
     // Hold in reset until PLL locks
-    always_ff @(posedge clk_12mhz or negedge rst) begin
-        if (!rst)
+    always_ff @(posedge clk_12mhz or posedge rst) begin
+        if (rst)
             reset <= 1'b1;
         else if (pll_locked)
             reset <= 1'b0;
@@ -58,7 +60,7 @@ module mag_sensor_processor_unit (
 
 
 
-    logic clkfb;
+    
 
 logic clk_unbuf, clk_40_unbuf;
 logic clk_40;
@@ -81,9 +83,10 @@ MMCME2_BASE #(
     .CLKOUT1  (clk_40_unbuf),
     .LOCKED   (pll_locked),
     .PWRDWN   (1'b0),
-    .RST      (!rst)
+    .RST      (rst)
 );
 logic reset_80_meta, reset_80_sync;
+logic clk_80;
 BUFG clk_buf    (.I(clk_unbuf),    .O(clk_80));
 BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
 
@@ -97,7 +100,7 @@ always_ff @(posedge clk_80 or posedge reset) begin
     end
 end
 
-    logic running;
+    
 
     always_ff @(posedge clk_12mhz or posedge reset) begin
         if (reset)
@@ -118,8 +121,8 @@ end
         .set_sig   (set_sig),
         .reset_sig (reset_sig),
         .sample_en (sample_en),
-        .phase     (phase)
-        //.start(running)
+        .phase     (phase),
+        .start(running)
     );
 
 
@@ -139,7 +142,7 @@ end
         .ch1_data     (adc_ch1),
         .ch2_data     (adc_ch2),
         .data_valid   (adc_data_valid),
-        
+        .final_sample(final_samp),
         .CS_n         (adc_cs_n)
     );
 
@@ -162,6 +165,7 @@ end
         .field_ch0    (field_ch0),
         .field_ch1    (field_ch1),
         .field_ch2    (field_ch2),
-        .result_valid (result_valid)
+        .result_valid (result_valid),
+        .final_sample (final_samp)
     );
 endmodule

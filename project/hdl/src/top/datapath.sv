@@ -308,7 +308,7 @@ module datapath #(
         .adc1_sclk(adc1_sclk),
         .adc1_busy(adc1_busy),
         .adc1_sdi(adc1_sdi),
-        .adc1_sdo(adc_sdo),
+        .adc1_sdo(adc1_sdo),
         .adc1_shdn(adc1_shdn),
         .adc1_cs(adc1_cs)
         
