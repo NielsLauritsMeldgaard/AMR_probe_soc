@@ -10,7 +10,7 @@ module sr_driver_gen #(
 )(
     input  logic clk,
     input  logic rst,
-    input logic  start,
+    //input logic  start,
 
     
     output logic set_sig,
@@ -55,7 +55,7 @@ module sr_driver_gen #(
     always_comb begin
         // Defaults
         state_d   = state_q;
-        timer_d = start ? (timer_q + 1) : timer_q;
+        timer_d = timer_q + 1;
         set_sig   = 1'b0;
         reset_sig = 1'b0;
         sample_en = 1'b0;

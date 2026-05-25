@@ -120,8 +120,8 @@ end
         .set_sig   (set_sig),
         .reset_sig (reset_sig),
         .sample_en (sample_en),
-        .phase     (phase),
-        .start(running)
+        .phase     (phase)
+        //.start(running)
     );
 
 
