@@ -1,18 +1,5 @@
 #include "../inc/hal.h"
 
-// Addresses of the peripherals in the memory map
-
-#define IO_BASE         0x40000000u
-#define LED_ADDR        (IO_BASE + 0x0)
-#define TIMER_ADDR      (IO_BASE + 0x4)
-#define UART_ADDR       (IO_BASE + 0x8)
-#define BUTTONS_ADDR    (IO_BASE + 0xc)
-#define SPI_BASE_ADDR   (IO_BASE + 0x10)
-#define SPI_CNTRL_ADDR  (SPI_BASE_ADDR + 0x0)
-#define SPI_STATUS_ADDR (SPI_BASE_ADDR + 0x4)
-#define SPI_TX_DAT_ADDR (SPI_BASE_ADDR + 0x8)
-#define SPI_RX_DAT_ADDR (SPI_BASE_ADDR + 0xC)
-
 /**
  * Delay for a given number of cycles by inserting nops.
  * @param cycles The number of fetch cycles to delay
@@ -122,4 +109,33 @@ unsigned int digital_read(unsigned int IO_BIT) {
     const unsigned int mask = (1u << IO_BIT);
     unsigned int reg_val = *gpi_reg;
     return (reg_val & mask) >> IO_BIT;
+}
+
+/**
+ * Toggle the HMC chip by writing a value of 1 to the HMC start register.
+ * This will start or stop the HMC from taking measurements, depending on its current state.
+ */
+void set_hmc() {
+    volatile unsigned int *hmc = (volatile unsigned int *)HMC_START_ADDR;
+    *hmc = 1;
+}
+
+/**
+ * Read the value of a specific axis from the HMC.
+ * @param axis The axis to read (1, 2, or 3)
+ * @return The value read from the specified HMC axis, or 0 if an invalid axis is specified
+ */
+unsigned int read_hmc_axis(unsigned int axis) {
+    unsigned int address = 0;
+    if (axis == 1) {
+        address = HMC_1_OUT_ADDR;
+    } else if (axis == 2) {
+        address = HMC_2_OUT_ADDR;
+    } else if (axis == 3) {
+        address = HMC_3_OUT_ADDR;
+    } else {
+        return 0; // Invalid axis, return 0 or handle as needed
+    }
+    volatile unsigned int *hmc_out_addr = (volatile unsigned int *)(address);
+    return *hmc_out_addr;
 }

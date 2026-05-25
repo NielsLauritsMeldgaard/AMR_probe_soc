@@ -56,6 +56,9 @@ void spi_configure(unsigned int clk_mode,
 
 /**
  * Make one SPI transaction.
+ * This function writes a byte to the SPI_TX_DAT register, triggers a transaction, waits for it to complete, and returns the received byte from the SPI_RX_DAT register.
+ * It waits for the SPI controller to be not busy before starting, and waits for the data_valid bit to be set before reading the response.
+ * It does NOT handle chip select or spi configuration, so those must be done separately before calling this function.
  * @param tx The data to transmit
  * @return The received data
  */
@@ -125,12 +128,57 @@ unsigned int sx1262_sanity_check() {
 
 }
 
-unsigned int accel_sanity_check() {
-    unsigned int regAddress = 0x0F; // accelerometer "WHO AM I" register address
-    unsigned int rx = 0;
+/**
+ * Read or write to a register on the accelerometer over SPI
+ * bit 0: RW bit. 1 for read, 0 for write
+ * bit 1: MS bit. 0 for unchanged address, 1 for auto-increment address (for multi-byte reads/writes)
+ * bit [7:2]: register address bits [5:0]
+ * bit [15:8]: data byte to write (for write operations) or ignored (for read operations)
+ * @param regAddress The 6-bit register address to read/write (see ILS328 datasheet for register map)
+ * @param value The byte value to write for write operations. Ignored for read operations.
+ * @param RW 1 for read operation, 0 for write operation
+ * @param MS 1 to auto-increment register address for multi-byte read/write, 0 to keep address unchanged (useful for reading/writing multiple bytes from/to the same register)
+ * @return For read operations, returns the byte value read from the register (in the upper byte of the return value). For write operations, returns the raw response from the SPI transfer (which may be ignored).
+ */
+unsigned int accel_rw_register(unsigned int regAddress, unsigned int value, unsigned int RW, unsigned int MS)
+{
     unsigned int tx = 0;
-    unsigned int expected = 0x24;
+    unsigned int rx = 0;
 
+    spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
+
+    digital_write(LOW, GPO_ACCEL_CS_BIT); // set accel CS low to select the slave
+    
+    // while(digital_read(GPI_ACCEL_INT1_BIT)) { } // Wait until accel is not busy    
+
+    // Send command byte with RW, MS, and register address
+    tx = ((regAddress & 0x3F) << 0) | ((MS & 0x1) << 6) | ((RW & 0x1) << 7);
+    rx = spi_transfer(tx);
+
+    if (RW) { // if read operation, send dummy byte to receive data
+        tx = 0x00;
+        rx = spi_transfer(tx);
+    } else { // if write operation, send data byte
+        tx = (value & 0xFF); // data byte goes in upper byte of the command
+        rx = spi_transfer(tx);
+    }
+
+    digital_write(HIGH, GPO_ACCEL_CS_BIT); // set accel CS high to deselect the slave
+
+    return rx; // for read operations, the register value will be in the upper byte of the response
+    
+
+}
+
+
+unsigned int accel_sanity_check() {
+    // WHO AM I default value should be 0x32 for ILS328
+    unsigned int who_am_i_reg = 0x0F; // WHO_AM_I register address for ILS328 accelerometer
+    unsigned int expected = 0x32;
+    unsigned int actual = accel_rw_register(who_am_i_reg, 0, 1, 0); // read WHO_AM_I register
+    //debug 
+    // print_hex(actual, 2, 1); // print the read WHO_AM_I value for debugging
+    return actual == expected;
 }
 
 
