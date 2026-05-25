@@ -2,7 +2,7 @@
 
 module mag_sensor_processor_unit (
     // Board clock and reset
-    input  logic        clk,          // Onboard 12 MHz oscillator
+    input  logic        clk_12mhz,          // Onboard 12 MHz oscillator
     input  logic        rst,              // Active-low reset (button)
 
     // HMC1001 Set/Reset driver outputs
@@ -31,7 +31,7 @@ module mag_sensor_processor_unit (
     // Internal signals
 
     // Clock and reset
-    logic clk80mhz;                              // 80 MHz system clock from PLL
+    logic clk;                              // 80 MHz system clock from PLL
     logic pll_locked;
     logic reset;
 
@@ -41,7 +41,6 @@ module mag_sensor_processor_unit (
 
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
-    logic        adc_data_phase;
 
     // Mag processor outputs
     logic [31:0]        n_set;
@@ -50,7 +49,7 @@ module mag_sensor_processor_unit (
 
     // Reset synchronisation
     // Hold in reset until PLL locks
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk_12mhz or negedge rst) begin
         if (!rst)
             reset <= 1'b1;
         else if (pll_locked)
@@ -60,26 +59,35 @@ module mag_sensor_processor_unit (
     end
 
 
-    // PLL: 12 MHz -> 80 MHz
-    // VCO = 12 * 40 = 480 MHz, CLKOUT0 = 480 / 6 = 80 MHz
+
     logic clkfb;
 
-    MMCME2_BASE #(
-        .CLKFBOUT_MULT_F  (40.0),          // VCO = 12 * 40 = 480 MHz
-        .CLKIN1_PERIOD    (83.333),         // 12 MHz = 83.333 ns period
-        .CLKOUT0_DIVIDE_F (6.0),            // 480 / 6 = 80 MHz
-        .DIVCLK_DIVIDE    (1),
-        .CLKOUT0_DUTY_CYCLE(0.5),
-        .CLKOUT0_PHASE    (0.0)
-    ) pll_inst (
-        .CLKIN1   (clk_12mhz),
-        .CLKFBIN  (clkfb),
-        .CLKFBOUT (clkfb),
-        .CLKOUT0  (clk),
-        .LOCKED   (pll_locked),
-        .PWRDWN   (1'b0),
-        .RST      (!rst)
-    );
+logic clk_unbuf, clk_40_unbuf;
+logic clk_40;
+
+MMCME2_BASE #(
+    .CLKFBOUT_MULT_F  (60.0),     // VCO = 12 * 60 = 720 MHz 
+    .CLKIN1_PERIOD    (83.333),   // 12 MHz
+    .CLKOUT0_DIVIDE_F (9.0),      // 720 / 9  = 80 MHz 
+    .CLKOUT1_DIVIDE   (18),       // 720 / 18 = 40 MHz 
+    .DIVCLK_DIVIDE    (1),
+    .CLKOUT0_DUTY_CYCLE(0.5),
+    .CLKOUT1_DUTY_CYCLE(0.5),
+    .CLKOUT0_PHASE    (0.0),
+    .CLKOUT1_PHASE    (0.0)
+) pll_inst (
+    .CLKIN1   (clk_12mhz),
+    .CLKFBIN  (clkfb),
+    .CLKFBOUT (clkfb),
+    .CLKOUT0  (clk_unbuf),
+    .CLKOUT1  (clk_40_unbuf),
+    .LOCKED   (pll_locked),
+    .PWRDWN   (1'b0),
+    .RST      (!rst)
+);
+
+BUFG clk_buf    (.I(clk_unbuf),    .O(clk_80));
+BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
 
 
     // SR Driver
@@ -90,7 +98,7 @@ module mag_sensor_processor_unit (
         .WINDOW_TIME_US (2460),
         .GAP_TIME_US    (20)
     ) sr_driver_inst (
-        .clk       (clk),
+        .clk       (clk_12mhz),
         .rst       (reset),
         .set_sig   (set_sig),
         .reset_sig (reset_sig),
@@ -102,10 +110,9 @@ module mag_sensor_processor_unit (
 
     // ADC Controller
     adc_controller adc_ctrl_inst (
-        .clk          (clk),
+        .clk          (clk_80),
         .rst          (reset),
         .sample_en    (sample_en),
-        .phase        (phase),
         .cnv          (adc_cnv),
         .sck          (adc_sck),
         .sdi          (adc_sdi),
@@ -117,7 +124,7 @@ module mag_sensor_processor_unit (
         .ch1_data     (adc_ch1),
         .ch2_data     (adc_ch2),
         .data_valid   (adc_data_valid),
-        .data_phase   (adc_data_phase),
+        
         .CS_n         (adc_cs_n)
     );
 
@@ -126,22 +133,20 @@ module mag_sensor_processor_unit (
     mag_datapath #(
         .ACC_WIDTH      (32),
         .N_CHANNELS     (3),
-        .TARGET_SAMPLES (1024)
+        .SAMPLES (1024)
     ) mag_data_inst (
-        .clk          (clk),
+        .clk          (clk_40),
         .rst          (reset),
         .ch0_data     (adc_ch0),
         .ch1_data     (adc_ch1),
         .ch2_data     (adc_ch2),
 
         .data_valid   (adc_data_valid),
-        .data_phase   (adc_data_phase),
+        .data_phase   (phase),
         .sample_en    (sample_en),
         .field_ch0    (field_ch0),
         .field_ch1    (field_ch1),
         .field_ch2    (field_ch2),
-        .n_set        (n_set),
-        .n_rst        (n_rst),
         .result_valid (result_valid)
     );
 endmodule

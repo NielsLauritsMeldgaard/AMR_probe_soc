@@ -159,14 +159,14 @@ module datapath #(
         dac_sclk    =   0; // DAC serial clock input (max 50MHz)
         dac_sdin    =   0; // DAC serial data input
         // Hardcode ADC control signals for now
-        adc1_cs     =   1; // ADC chip select (active low)
-        adc1_sdi    =   0; // ADC serial data input (MOSI)
-        adc1_sclk   =   0; // ADC serial clock input
-        adc1_cnv    =   0; // ADC convert start signal
-        adc1_shdn   =   1; // ADC shutdown control (tied low for always on)
+        //adc1_cs     =   1; // ADC chip select (active low)
+        //adc1_sdi    =   0; // ADC serial data input (MOSI)
+        //adc1_sclk   =   0; // ADC serial clock input
+        //adc1_cnv    =   0; // ADC convert start signal
+        //adc1_shdn   =   1; // ADC shutdown control (tied low for always on)
         // Set reset signals
-        driver_rst  =   0;
-        driver_set  =   0;
+        //driver_rst  =   0;
+        //driver_set  =   0;
 
         // --- SPI and GPIO connections ---
         // Connect GPO register from IO manager to physical pins

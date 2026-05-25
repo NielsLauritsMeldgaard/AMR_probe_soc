@@ -99,6 +99,7 @@ module io_manager #(
     logic [31:0]          field0_data; // magnetic fields data from mag_datapath
     logic [31:0]          field1_data;
     logic [31:0]          field2_data;
+    logic               mag_result_valid;
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
         .clk(clk), .rst(rst),
@@ -132,23 +133,25 @@ module io_manager #(
     );
     
         mag_sensor_processor_unit(
-        .clk(clk),
+        .clk_12mhz(clk),
         .rst(rst),
         .toggle(toggle),
         .set_sig(driver_set),
         .reset_sig(driver_rst),
         .adc_cnv(adc1_cnv),
         .adc_sck(adc1_sclk),
-        .adc_sdi(adc1_adi),
+        .adc_sdi(adc1_Sdi),
         .adc_cs_n(adc1_cs),
         .adc_busy(adc1_busy),
         .adc_sdo0(adc1_sdo[0]),
         .adc_sdo1(adc1_sdo[1]),
         .adc_sdo2(adc1_sdo[2]),
-        .field_ch0(field_ch0),
-        .field_ch1(field_ch1),
-        .field_ch2(field_ch2)
+        .field_ch0(field0_data),
+        .field_ch1(field1_data),
+        .field_ch2(field2_data),
+        .result_valid(mag_result_valid)
     );
+
 
 
      always_comb begin
