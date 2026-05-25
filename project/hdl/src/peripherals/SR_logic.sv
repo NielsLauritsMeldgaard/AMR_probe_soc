@@ -2,7 +2,11 @@
 
 
 module sr_driver_gen #(
+<<<<<<< HEAD
     parameter int CLK_FREQ_HZ    = 12_000_000,  // 80 MHz clock from PLL
+=======
+    parameter int CLK_FREQ_HZ    = 12_000_000,  // clock from PLL
+>>>>>>> 90478e6414e6a8244cf66a79784c2a9b9234de53
     parameter int PULSE_TIME_US  = 2 ,             // S/R pulse duration
     parameter int SETTLE_TIME_US = 10,            // Post-pulse settling (5*tau)
     parameter int WINDOW_TIME_US = 2480,          // Sampling window duration
