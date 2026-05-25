@@ -42,9 +42,7 @@ module mag_sensor_processor_unit (
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
 
-    // Mag processor outputs
-    logic [31:0]        n_set;
-    logic [31:0]        n_rst;
+
 
 
     // Reset synchronisation

@@ -140,7 +140,7 @@ module io_manager #(
         .reset_sig(driver_rst),
         .adc_cnv(adc1_cnv),
         .adc_sck(adc1_sclk),
-        .adc_sdi(adc1_Sdi),
+        .adc_sdi(adc1_sdi),
         .adc_cs_n(adc1_cs),
         .adc_busy(adc1_busy),
         .adc_sdo0(adc1_sdo[0]),
@@ -182,8 +182,8 @@ module io_manager #(
             4'b1000: wb_dat_o_next = {20'b0, adc_value}; // XADC readout
             4'b1001: wb_dat_o_next = {23'b0, gpio_out_reg}; // GPO register (read current register output status) 
             4'b1010: wb_dat_o_next = {24'b0, gpio_in_reg};  // GPO register (read GPI status)
-            4'b1100: wb_dat_o_next = field1_data;
-            4'b1101: wb_dat_o_next = field2_data;
+            4'b1100: wb_dat_o_next = field0_data;
+            4'b1101: wb_dat_o_next = field1_data;
             4'b1110: wb_dat_o_next = field2_data;
             
             default: wb_dat_o_next = 32'h0;      
