@@ -132,7 +132,7 @@ module io_manager #(
         .adc_value(adc_value) 
     );
     
-        mag_sensor_processor_unit(
+        mag_sensor_processor_unit mag_sensor_processor_unit(
         .clk_12mhz(clk),
         .rst(rst),
         .toggle(toggle),
@@ -165,8 +165,9 @@ module io_manager #(
         uart_re = (read_stb && (word_index == 4'b10));
         spi_sel = (word_index[3:2] == 2'b01);
         timer_set = (write_stb && (word_index == 4'b0001) && (wb_dat_i == 32'h1));
-        toggle = (write_stb && (word_index == 4'b1011) && (wb_dat_i == 32'h1));
-        //timer_set = 0;
+        //toggle = (write_stb && (word_index == 4'b1011) && (wb_dat_i == 32'h1));
+        toggle = 1'b1;
+        timer_set = 0;
         gpio_out = gpio_out_reg;
        
 
