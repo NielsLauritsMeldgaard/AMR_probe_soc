@@ -212,5 +212,5 @@ module io_manager #(
                 gpio_out_reg <= wb_dat_i[GPO_WIDTH-1:0];
         end
     end
-    
+    assign adc1_shdn = 0;
 endmodule

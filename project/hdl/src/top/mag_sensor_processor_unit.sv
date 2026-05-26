@@ -90,20 +90,20 @@ logic clk_80;
 BUFG clk_buf    (.I(clk_unbuf),    .O(clk_80));
 BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
 
-always_ff @(posedge clk_80 or posedge reset) begin
-    if (reset) begin
-        reset_80_meta <= 1'b1;
-        reset_80_sync <= 1'b1;
-    end else begin
-        reset_80_meta <= 1'b0;
-        reset_80_sync <= reset_80_meta;
-    end
-end
+//always_ff @(posedge clk_80 or posedge reset) begin
+//    if (reset) begin
+//        reset_80_meta <= 1'b1;
+//        reset_80_sync <= 1'b1;
+//    end else begin
+//        reset_80_meta <= 1'b0;
+//        reset_80_sync <= reset_80_meta;
+//    end
+//end
 
     
 
-    always_ff @(posedge clk_12mhz or posedge reset) begin
-        if (reset)
+    always_ff @(posedge clk_12mhz or posedge rst) begin
+        if (rst)
               running <= 1'b0;
         else if (toggle)      // CPU write lathes for now
              running <= 1'b1;
@@ -117,7 +117,7 @@ end
         .GAP_TIME_US    (20)
     ) sr_driver_inst (
         .clk       (clk_12mhz),
-        .rst       (reset),
+        .rst       (rst),
         .set_sig   (set_sig),
         .reset_sig (reset_sig),
         .sample_en (sample_en),
@@ -127,9 +127,16 @@ end
 
 
     // ADC Controller
-    adc_controller adc_ctrl_inst (
-        .clk          (clk_80),
-        .rst          (reset_80_sync),
+    adc_controller#(
+        .CLK_FREQ_HZ    (12_000_000),
+        .TCNVH          (40),
+        .TCONV          (550),
+        .N_CHANNELS     (3),
+        .TQUIET         (20),
+        .WINDOW_TIME_US (2460)
+    ) adc_ctrl_inst (
+        .clk          (clk_12mhz),
+        .rst          (rst),
         .sample_en    (sample_en),
         .cnv          (adc_cnv),
         .sck          (adc_sck),
@@ -151,10 +158,14 @@ end
     mag_datapath #(
         .ACC_WIDTH      (32),
         .N_CHANNELS     (3),
-        .SAMPLES (1024)
+        .CLK_FREQ_HZ    (12_000_000),
+        .TCNVH          (40),
+        .TCONV          (550),
+        .TQUIET         (20),
+        .WINDOW_TIME_US (2460)
     ) mag_data_inst (
-        .clk          (clk_40),
-        .rst          (reset_80_sync),
+        .clk          (clk_12mhz),
+        .rst          (rst),
         .ch0_data     (adc_ch0),
         .ch1_data     (adc_ch1),
         .ch2_data     (adc_ch2),

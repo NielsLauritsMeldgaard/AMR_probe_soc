@@ -14,7 +14,11 @@
 module mag_datapath #(
     parameter int ACC_WIDTH     = 32,   // Accumulator width in bits
     parameter int N_CHANNELS    = 3,     // Number of ADC channels
-    parameter int SAMPLES = 1024
+     parameter int CLK_FREQ_HZ   = 12_000_000,  // clk freq 40MHz
+    parameter int TCNVH          = 40,    // conversion time 40ns
+    parameter int TCONV          = 550,    // busy high: 500xN ns
+    parameter int TQUIET         = 20,   // Quiet time: 20ns 
+    parameter int WINDOW_TIME_US = 2468
     
 )(
     input  logic        clk,
@@ -37,6 +41,20 @@ module mag_datapath #(
     output logic signed [ACC_WIDTH-1:0] field_ch2,
     output logic        result_valid  // One cycle strobe
 );
+    localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  // 25.0 ns at 40MHz
+    localparam int N_BITS         = 16;         // bits per conversion readout
+    localparam int CNV_HIGH_TICKS = int'($ceil(TCNVH         / NS_PER_TICK));  // ceil(40/25)  = 2
+    localparam int BUSY_TIMEOUT   = int'($ceil((TCONV * N_CHANNELS) / NS_PER_TICK));  // ceil(1500/25) = 60
+    localparam int QUIET_TICKS    = int'($ceil(TQUIET        / NS_PER_TICK));  // ceil(20/25)  = 1
+    localparam real T_SHIFT_NS    = N_BITS * 2.0 * NS_PER_TICK;   // 2 ticks per bit
+    // tCYC in ns
+    localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
+                       * NS_PER_TICK;
+    
+// Window time in ns
+    localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
+    // Max samples that fit in the window
+    localparam int SAMPLES = int'($floor(WINDOW_NS / tCYC));
     localparam int SHIFT_BITS = $clog2(SAMPLES); 
 
     // SET and RESET accumulators for each channel

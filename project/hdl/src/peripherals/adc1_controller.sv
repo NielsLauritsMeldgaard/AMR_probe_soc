@@ -15,7 +15,14 @@
 // Sent MSB first as 12-bit word padded to 16 bits: 0000_0001_0110_1101
 
 
-module adc_controller(
+module adc_controller #(
+    parameter int CLK_FREQ_HZ    = 12_000_000,  // clk freq 40MHz
+    parameter int TCNVH          = 40,    // conversion time 40ns
+    parameter int TCONV          = 550,    // busy high: 500xN ns
+    parameter int N_CHANNELS     = 3,    // number of channels: 3
+    parameter int TQUIET         = 20,   // Quiet time: 20ns 
+    parameter int WINDOW_TIME_US = 2468
+)(
     input  logic        clk,
     input  logic        rst,
 
@@ -40,16 +47,21 @@ module adc_controller(
     output logic        data_valid,            // One cycle strobe per conversion
     output logic        final_sample
 );
-    localparam int CLK_FREQ_HZ    = 80_000_000;
-    localparam int CNV_HIGH_TICKS = 4;          // tCNVH = 40ns min
-    localparam int BUSY_TIMEOUT   = 200;        // > tCONV_max = 132 ticks, margin added
-    localparam int SCKI_DIV       = 1;          // toggle every tick → 40MHz SCKI
-    localparam int QUIET_TICKS    = 2;          // tQUIET = 20ns min
-    localparam int CS_ENABLE_TICKS = 2;         // tEN = 15ns min
+    localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  // 25.0 ns at 40MHz
     localparam int N_BITS         = 16;         // bits per conversion readout
-    localparam int N_CHANNELS     = 3;          // channels in use
-    localparam int SAMPLES = 1024;  // must be power of 2 ( fixed amount of samples of 
-                                           // power of 2 means simple div (bit shift) in mag_processor)
+    localparam int CNV_HIGH_TICKS = int'($ceil(TCNVH         / NS_PER_TICK));  // ceil(40/25)  = 2
+    localparam int BUSY_TIMEOUT   = int'($ceil((TCONV * N_CHANNELS) / NS_PER_TICK));  // ceil(1500/25) = 60
+    localparam int QUIET_TICKS    = int'($ceil(TQUIET        / NS_PER_TICK));  // ceil(20/25)  = 1
+    localparam real T_SHIFT_NS    = N_BITS * 2.0 * NS_PER_TICK;   // 2 ticks per bit
+    // tCYC in ns
+    localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
+                       * NS_PER_TICK;
+    
+// Window time in ns
+    localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
+    // Max samples that fit in the window
+    localparam int SAMPLES = int'($floor(WINDOW_NS / tCYC));
+ 
     localparam int SAMPLE_BITS = $clog2(SAMPLES);  
     
     // Configuration word
@@ -81,14 +93,17 @@ module adc_controller(
     logic [15:0] sr0_q, sr0_d;
     logic [15:0] sr1_q, sr1_d;
     logic [15:0] sr2_q, sr2_d;
+    
    
 
     
     // Output registers
+    logic sdi_d, sdi_q;
     logic [15:0] ch0_q, ch0_d;
     logic [15:0] ch1_q, ch1_d;
     logic [15:0] ch2_q, ch2_d;
     logic sample_en_meta, sample_en_sync;
+    logic data_valid_d, data_valid_q;
 
     always_ff @(posedge clk) begin  // clk = 80 MHz
         sample_en_meta <= sample_en;   // from sr_driver (12 MHz domain)
@@ -115,18 +130,18 @@ module adc_controller(
      ch1_d          = ch1_q;
      ch2_d          = ch2_q;
      final_sample   = 0;
-     sample_count_d = 0;
+     sample_count_d = sample_count_q;
      
      scki_rising  = 1'b0;
      scki_falling = 1'b0;
      cnv          = 1'b0;
-     sdi          = 1'b0;
-     
+     sdi_d        = sdi_q;
+     data_valid_d = data_valid_q;
       case (state_q) 
             ST_IDLE: begin
                
                scki_d    = 1'b0;
-               
+               data_valid_d = 0;
                if (sample_en_sync) begin
                 state_d = ST_CNV_PULSE;
                 timer_d = 0;
@@ -139,6 +154,7 @@ module adc_controller(
             ST_CNV_PULSE: begin
                 cnv = 1'b1;
                 scki_d    = 1'b0;
+                data_valid_d = 0;
                 if (timer_q >= CNV_HIGH_TICKS) begin
                     timer_d = 0;
                     state_d = ST_WAIT_BUSY;
@@ -149,10 +165,12 @@ module adc_controller(
             
             ST_WAIT_BUSY: begin
                 scki_d = 1'b0;
+                data_valid_d = 0;
+                sdi_d  = SOFTSPAN_WORD[15];
                 if (!busy) begin
                     state_d = ST_SHIFT;
                     timer_d = 0;
-            
+                    
                     bit_d   = 4'd15;
                 end else if (timer_q >= BUSY_TIMEOUT - 1) begin
                     // Hardware fault - BUSY never fell
@@ -167,11 +185,12 @@ module adc_controller(
             
            ST_SHIFT: begin
                 scki_d = ~scki_q;
+                data_valid_d = 0;
                 scki_rising  = (scki_q == 1'b0);  
                 scki_falling = (scki_q == 1'b1);  
                         // On falling SCKI edge, output next SDI bit
                 if (scki_falling) begin
-                    sdi = SOFTSPAN_WORD[bit_q];  // bit_q goes 15 down to 0
+                    sdi_d = SOFTSPAN_WORD[bit_q];  // bit_q goes 15 down to 0
                 end 
                 
                 if (scki_rising) begin
@@ -195,6 +214,7 @@ module adc_controller(
              // Hold SCKI low, SDI low, CNV low
              // Just count 2 ticks then proceed
                  scki_d    = 1'b0;
+                 data_valid_d = 0;
                  if (timer_q >= QUIET_TICKS - 1) begin
                     timer_d = '0;
                     if (!startup_done_q) begin
@@ -208,8 +228,7 @@ module adc_controller(
             
             ST_DISCARD: begin
                 // Softspan now loaded, discard this result
-                
-                
+                data_valid_d = 0;
                 scki_d    = 1'b0;
                 startup_done_d = 1'b1;  // flag: from now on ST_DONE instead
                 if (sample_en_sync) begin
@@ -220,7 +239,7 @@ module adc_controller(
             end
             
             ST_DONE: begin
-              
+                data_valid_d = 1;
                 scki_d    = 1'b0;
                 
                 ch0_d   = sr0_q[15:0];  // or sr0_q[15:0] if 16-bit
@@ -256,7 +275,7 @@ module adc_controller(
          ch1_q          <= 16'b0;
          ch2_q          <= 16'b0; 
          sample_count_q <= 0;
-                
+         data_valid_q   <= 0;       
         end else begin
         state_q        <= state_d;
         timer_q        <= timer_d;
@@ -264,6 +283,7 @@ module adc_controller(
         scki_q         <= scki_d;
         startup_done_q <= startup_done_d;
         sample_count_q <= sample_count_d;
+        data_valid_q   <= data_valid_d;
         //shift registers
         sr0_q <= sr0_d;
         sr1_q <= sr1_d;
@@ -273,7 +293,7 @@ module adc_controller(
         ch0_q   <= ch0_d;
         ch1_q   <= ch1_d;
         ch2_q   <= ch2_d;
- 
+        sdi_q <= sdi_d;
         
         end
     end
@@ -285,6 +305,7 @@ module adc_controller(
     assign ch0_data = ch0_q;
     assign ch1_data = ch1_q;
     assign ch2_data = ch2_q;
-    assign data_valid = (state_q == ST_DONE);
     assign sck = scki_q;
+    assign data_valid = data_valid_q;
+    assign sdi = sdi_q;
 endmodule
