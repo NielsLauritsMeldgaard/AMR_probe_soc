@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-
+// parameters handle the sample total as a function 
 module sr_driver_gen #(
     parameter int CLK_FREQ_HZ    = 12_000_000,  
 

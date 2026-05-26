@@ -30,16 +30,13 @@ module mag_sensor_processor_unit (
 
     // Internal signals
 
-    // Clock and reset
-   
-    logic pll_locked;
-    logic reset;
+
     logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     // SR driver -> ADC controller and mag processor
     logic sample_en;
     logic phase;
     logic running;
-    logic clkfb;
+    
     logic final_samp;
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
@@ -47,60 +44,7 @@ module mag_sensor_processor_unit (
 
 
 
-    // Reset synchronisation
-    // Hold in reset until PLL locks
-    always_ff @(posedge clk_12mhz or posedge rst) begin
-        if (rst)
-            reset <= 1'b1;
-        else if (pll_locked)
-            reset <= 1'b0;
-        else
-            reset <= 1'b1;
-    end
-
-
-
-    
-
-logic clk_unbuf, clk_40_unbuf;
-logic clk_40;
-
-MMCME2_BASE #(
-    .CLKFBOUT_MULT_F  (60.0),     // VCO = 12 * 60 = 720 MHz 
-    .CLKIN1_PERIOD    (83.333),   // 12 MHz
-    .CLKOUT0_DIVIDE_F (9.0),      // 720 / 9  = 80 MHz 
-    .CLKOUT1_DIVIDE   (18),       // 720 / 18 = 40 MHz 
-    .DIVCLK_DIVIDE    (1),
-    .CLKOUT0_DUTY_CYCLE(0.5),
-    .CLKOUT1_DUTY_CYCLE(0.5),
-    .CLKOUT0_PHASE    (0.0),
-    .CLKOUT1_PHASE    (0.0)
-) pll_inst (
-    .CLKIN1   (clk_12mhz),
-    .CLKFBIN  (clkfb),
-    .CLKFBOUT (clkfb),
-    .CLKOUT0  (clk_unbuf),
-    .CLKOUT1  (clk_40_unbuf),
-    .LOCKED   (pll_locked),
-    .PWRDWN   (1'b0),
-    .RST      (rst)
-);
-logic reset_80_meta, reset_80_sync;
-logic clk_80;
-BUFG clk_buf    (.I(clk_unbuf),    .O(clk_80));
-BUFG clk_40_buf (.I(clk_40_unbuf), .O(clk_40));
-
-//always_ff @(posedge clk_80 or posedge reset) begin
-//    if (reset) begin
-//        reset_80_meta <= 1'b1;
-//        reset_80_sync <= 1'b1;
-//    end else begin
-//        reset_80_meta <= 1'b0;
-//        reset_80_sync <= reset_80_meta;
-//    end
-//end
-
-    
+  
 
     always_ff @(posedge clk_12mhz or posedge rst) begin
         if (rst)

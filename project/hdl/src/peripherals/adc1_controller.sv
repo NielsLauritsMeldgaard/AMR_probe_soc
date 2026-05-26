@@ -60,16 +60,18 @@ module adc_controller #(
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES = int'($floor(WINDOW_NS / tCYC));
- 
-    localparam int SAMPLE_BITS = $clog2(SAMPLES);  
+    localparam int SAMPLES_RAW = int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLE_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
+                                    $clog2(SAMPLES_RAW) :      // already power of 2
+                                    $clog2(SAMPLES_RAW) - 1;   // round down
+    localparam int SAMPLES     = 1 << SAMPLE_BITS; 
     
     // Configuration word
     // LTC2357-16 config: 000 101 101 101 => unipolar input range: 0V to 2xVREF where VREF=2.5V from DAC bandgap so 0V to 5V
     // Sent as 12 bits MSB first, padded to 16 bits
-  
-    localparam logic [15:0] SOFTSPAN_WORD = 16'b0000_0001_0110_1101;
-
+   // softspan word big 
+    
+    localparam logic [15:0] SOFTSPAN_WORD = 16'b1011_0110_1000_0000;
     // State machine
     typedef enum logic [3:0] {
         ST_IDLE,            // Wait for sample_en from SR driver
@@ -105,10 +107,10 @@ module adc_controller #(
     logic sample_en_meta, sample_en_sync;
     logic data_valid_d, data_valid_q;
 
-    always_ff @(posedge clk) begin  // clk = 80 MHz
-        sample_en_meta <= sample_en;   // from sr_driver (12 MHz domain)
-        sample_en_sync <= sample_en_meta;
-    end
+//    always_ff @(posedge clk) begin  // clk = 80 MHz
+//        sample_en_meta <= sample_en;   // from sr_driver (12 MHz domain)
+//        sample_en_sync <= sample_en_meta;
+//    end
 
 
     // FSM flow - the first data after softspan has been sent is garbage, a discard state is used to ignore data.

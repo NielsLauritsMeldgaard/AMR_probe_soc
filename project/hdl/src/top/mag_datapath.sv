@@ -50,12 +50,17 @@ module mag_datapath #(
     // tCYC in ns
     localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
                        * NS_PER_TICK;
+    localparam signed [15:0] ADC_OFFSET = 16'd26843;  // 2.5V midpoint in straight binary
+
     
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES = int'($floor(WINDOW_NS / tCYC));
-    localparam int SHIFT_BITS = $clog2(SAMPLES); 
+    localparam int SAMPLES_RAW = int'($floor(WINDOW_NS / tCYC));
+    localparam int SHIFT_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
+                                    $clog2(SAMPLES_RAW) :      // already power of 2
+                                    $clog2(SAMPLES_RAW) - 1;   // round down
+    localparam int SAMPLES     = 1 << SHIFT_BITS; 
 
     // SET and RESET accumulators for each channel
     logic signed [ACC_WIDTH-1:0] acc_set0_q, acc_set0_d;
@@ -108,16 +113,16 @@ module mag_datapath #(
         if (data_valid && sample_en) begin
             if (!data_phase) begin
                 // SET phase, accumulate positively
-                acc_set0_d = acc_set0_q +  ACC_WIDTH'(signed'({1'b0, ch0_data}));
-                acc_set1_d = acc_set1_q +  ACC_WIDTH'(signed'({1'b0, ch1_data}));
-                acc_set2_d = acc_set2_q +  ACC_WIDTH'(signed'({1'b0, ch2_data}));
+                acc_set0_d = acc_set0_q + ACC_WIDTH'(signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_OFFSET}));
+                acc_set1_d = acc_set1_q + ACC_WIDTH'(signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_OFFSET}));
+                acc_set2_d = acc_set2_q + ACC_WIDTH'(signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_OFFSET}));
                  
 
             end else begin
                 // RESET phase, accumulate into separate register
-                acc_rst0_d = acc_rst0_q + ACC_WIDTH'(signed'({1'b0, ch0_data}));
-                acc_rst1_d = acc_rst1_q + ACC_WIDTH'(signed'({1'b0, ch1_data}));
-                acc_rst2_d = acc_rst2_q + ACC_WIDTH'(signed'({1'b0, ch2_data}));
+                acc_rst0_d = acc_rst0_q + ACC_WIDTH'(signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_OFFSET}));
+                acc_rst1_d = acc_rst1_q + ACC_WIDTH'(signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_OFFSET}));
+                acc_rst2_d = acc_rst2_q + ACC_WIDTH'(signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_OFFSET}));
                 
                 
                 
