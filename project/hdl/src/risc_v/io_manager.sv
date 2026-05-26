@@ -167,7 +167,7 @@ module io_manager #(
         timer_set = (write_stb && (word_index == 4'b0001) && (wb_dat_i == 32'h1));
         //toggle = (write_stb && (word_index == 4'b1011) && (wb_dat_i == 32'h1));
         toggle = 1'b1;
-        timer_set = 0;
+        //timer_set = 0;
         gpio_out = gpio_out_reg;
        
 
