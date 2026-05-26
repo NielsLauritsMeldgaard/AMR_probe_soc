@@ -183,8 +183,15 @@ module datapath #(
         adc2_mosi       =       MOSI;
         lora_mosi       =       MOSI;
         accel_mosi      =       MOSI; 
-        MISO            =       adc2_miso || lora_miso || accel_miso;
-        //MISO            =       lora_miso;
+        //MISO            =       adc2_miso || lora_miso || accel_miso;
+        //MISO            =       lora_miso || accel_miso;
+        //MISO            =       accel_miso;
+        case ({gpio_out[0], gpio_out[1], gpio_out[3]}) // {accel_cs, lora_cs, adc2_cs}
+            3'b011: MISO = accel_miso; // Connect to accelerometer MISO when accel_cs is active
+            3'b101: MISO = lora_miso; // Connect to LoRa MISO when lora_cs is active
+            3'b110: MISO = adc2_miso; // Connect to ADC2 MISO when adc2_cs is active
+            default: MISO = 1'b1; // High impedance for invalid states (both CS active, which shouldn't happen)
+        endcase
         // lora hardcoded value
         lora_rst        =       1; // Lora always active
         
