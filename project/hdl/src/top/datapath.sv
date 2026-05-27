@@ -137,7 +137,9 @@ module datapath #(
     logic [GPO_WIDTH-1:0] gpio_out; // General Purpose Output from IO manager to peripherals
     logic [GPI_WIDTH-1:0] gpio_in;   // General Purpose Input from peripherals to IO manager
     logic MISO, MOSI, SCLK, SPI_SS; // SPI signals (shared between multiple peripherals, so we route them as separate signals rather than dedicated peripheral outputs)
-
+    
+    logic dac_send;
+    logic dac_busy;
     always_comb begin
         // --- GLOBAL STALL LOGIC ---
         //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
@@ -151,14 +153,7 @@ module datapath #(
         led0_r  =   1;
 
         // --- HMC DSP block--
-        // @TODO: Add DAC and ADC logic
-        // Hardcode DAC control signals for now
-        dac_rst     =   0; // DAC always active
-        dac_sync    =   0; // DAC always ready to receive data
-        dac_ldac    =   0; // synchronous mode (DAC outputs update immediately when new data is received)
-        dac_sclk    =   0; // DAC serial clock input (max 50MHz)
-        dac_sdin    =   0; // DAC serial data input
-        
+
 
         // --- SPI and GPIO connections ---
         // Connect GPO register from IO manager to physical pins
@@ -194,7 +189,7 @@ module datapath #(
         endcase
         // lora hardcoded value
         lora_rst        =       1; // Lora always active
-        
+        dac_send = 1;  // allows dac to convert all incoming serial data to Vout
     end
 
     
@@ -317,8 +312,14 @@ module datapath #(
         .adc1_sdi(adc1_sdi),
         .adc1_sdo(adc1_sdo),
         .adc1_shdn(adc1_shdn),
-        .adc1_cs(adc1_cs)
-        
+        .adc1_cs(adc1_cs),
+        .dac_send(dac_send),           // start conversion dac
+        .dac_busy(dac_busy), 
+        .dac_rst(dac_rst),
+        .dac_sclk(dac_sclk),
+        .dac_sdin(dac_sdin),
+        .dac_sync(dac_sync),
+        .dac_ldac(dac_ldac)
     );
     // --- 7. SLAVE 0: DATA RAM ---
     data_memory #(.MEM_WORDS(DATA_MEM_WORDS)) data_mem (

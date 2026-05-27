@@ -104,14 +104,19 @@ module adc_controller #(
     logic [15:0] ch0_q, ch0_d;
     logic [15:0] ch1_q, ch1_d;
     logic [15:0] ch2_q, ch2_d;
-    logic sample_en_meta, sample_en_sync;
     logic data_valid_d, data_valid_q;
 
-//    always_ff @(posedge clk) begin  // clk = 80 MHz
-//        sample_en_meta <= sample_en;   // from sr_driver (12 MHz domain)
-//        sample_en_sync <= sample_en_meta;
-//    end
-
+   // logic sample_en_meta, sample_en_sync;
+    // in use when using CDC
+//    xpm_cdc_single #(
+//        .DEST_SYNC_FF  (2),    // two flop synchronizer
+//        .SRC_INPUT_REG (0)     // source already registered
+//    ) sample_en_cdc (
+//        .src_clk  (clk_12mhz),
+//        .src_in   (sample_en),
+//        .dest_clk (clk_80),
+//        .dest_out (sample_en_sync)
+//    );
 
     // FSM flow - the first data after softspan has been sent is garbage, a discard state is used to ignore data.
   // ST_IDLE -> ST_CNV_PULSE -> ST_WAIT_BUSY -> ST_SHIFT -> ST_QUIET -> ST_DISCARD -> ST_IDLE
@@ -144,7 +149,7 @@ module adc_controller #(
                
                scki_d    = 1'b0;
                data_valid_d = 0;
-               if (sample_en_sync) begin
+               if (sample_en) begin
                 state_d = ST_CNV_PULSE;
                 timer_d = 0;
                 end else begin
@@ -233,7 +238,7 @@ module adc_controller #(
                 data_valid_d = 0;
                 scki_d    = 1'b0;
                 startup_done_d = 1'b1;  // flag: from now on ST_DONE instead
-                if (sample_en_sync) begin
+                if (sample_en) begin
                     state_d = ST_CNV_PULSE;
                 end else begin
                     state_d = ST_IDLE;
@@ -248,7 +253,7 @@ module adc_controller #(
                 ch1_d   = sr1_q[15:0];
                 ch2_d   = sr2_q[15:0];
              
-                if (sample_en_sync && sample_count_q < SAMPLES) begin
+                if (sample_en && sample_count_q < SAMPLES) begin
                     state_d = ST_CNV_PULSE;
                     sample_count_d = sample_count_q + 1;
                 end else begin

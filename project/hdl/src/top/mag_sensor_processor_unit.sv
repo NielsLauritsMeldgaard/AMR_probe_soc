@@ -9,6 +9,7 @@ module mag_sensor_processor_unit (
     output logic        set_sig,            // Set pulse to H-bridge
     output logic        reset_sig,          // Reset pulse to H-bridge
     input  logic        toggle,             // toggle to start system
+
     // LTC2357-16 ADC interface
     output logic        adc_cnv,            // Convert start pulse
     output logic        adc_sck,            // SPI clock to ADC
@@ -19,6 +20,14 @@ module mag_sensor_processor_unit (
     input  logic        adc_sdo1,           // Channel 1 data (HMC axis 2)
     input  logic        adc_sdo2,           // Channel 2 data (HMC axis 3)
     
+    // AD5686R DAC interface
+    input  logic        dac_send,           // start conversion dac
+    output logic        dac_busy, 
+    output logic        dac_rst,
+    output logic        dac_sclk,
+    output logic        dac_sdin,
+    output logic        dac_sync,
+    output logic        dac_ldac,
     
     output logic signed [31:0] field_ch0,
     output logic signed [31:0] field_ch1,
@@ -40,7 +49,7 @@ module mag_sensor_processor_unit (
     logic final_samp;
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
-
+    logic        dac_busy_;
 
 
 
@@ -123,4 +132,24 @@ module mag_sensor_processor_unit (
         .result_valid (result_valid),
         .final_sample (final_samp)
     );
+    
+    dac_controller dac_ctrl_inst(
+        .clk(clk_12mhz),
+        .rst(rst),
+        
+        // inputs to dac 
+        .reset_n(dac_rst),
+        .ldac_n(dac_ldac),
+        
+        .send(dac_send),
+        .data_a(field_ch0), // value for DAC A
+        .data_b(field_ch1), // value for DAC B
+        .data_c(field_ch2), // value for DAC C
+        .busy(dac_busy_), // high while transfer in progress
+        // SPI signals
+        .sclk(dac_sclk),
+        .sdin(dac_sdin),
+        .sync_n(dac_sync)
+    );
+    assign dac_busy = dac_busy_;
 endmodule

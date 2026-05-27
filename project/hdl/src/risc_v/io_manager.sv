@@ -76,6 +76,14 @@ module io_manager #(
     output logic adc1_cnv, // ADC Convert Start Signal 
     output logic adc1_shdn, // ADC Shutdown Control  
     
+    input  logic dac_send,           // start conversion dac
+    output logic dac_busy, 
+    output logic dac_rst,
+    output logic dac_sclk,
+    output logic dac_sdin,
+    output logic dac_sync,
+    output logic dac_ldac,
+    
     // sr driver pins
     output logic        driver_set, driver_rst
 );
@@ -146,6 +154,13 @@ module io_manager #(
         .adc_sdo0(adc1_sdo[0]),
         .adc_sdo1(adc1_sdo[1]),
         .adc_sdo2(adc1_sdo[2]),
+        .dac_send(dac_send),           // start conversion dac
+        .dac_busy(dac_busy), 
+        .dac_rst(dac_rst),
+        .dac_sclk(dac_sclk),
+        .dac_sdin(dac_sdin),
+        .dac_sync(dac_sync),
+        .dac_ldac(dac_ldac),
         .field_ch0(field0_data),
         .field_ch1(field1_data),
         .field_ch2(field2_data),
