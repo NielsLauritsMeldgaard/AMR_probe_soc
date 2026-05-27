@@ -71,7 +71,7 @@ module adc_controller #(
     // Sent as 12 bits MSB first, padded to 16 bits
    // softspan word big 
     
-    localparam logic [15:0] SOFTSPAN_WORD = 16'b1011_0110_1000_0000;
+    localparam logic [15:0] SOFTSPAN_WORD = 16'b1001_0010_0000_0000;
     // State machine
     typedef enum logic [3:0] {
         ST_IDLE,            // Wait for sample_en from SR driver
