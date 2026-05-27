@@ -1,6 +1,6 @@
 #include "../inc/hal.h"
 #include "../inc/driver.h"
-
+#include "../inc/sx1262_driver.h"
 
 int main(void)
 {
@@ -10,157 +10,148 @@ int main(void)
     digital_write(HIGH, GPO_ACCEL_CS_BIT);
     digital_write(HIGH, GPO_LORA_CS_BIT);
     digital_write(HIGH, GPO_ADC2_CS_BIT);
-    digital_write(HIGH, GPO_LORA_RF_SW_BIT); // set LoRa RF switch to RX
-    digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 to shutdown
-    digital_write(LOW, GPO_ADC2_CNV_BIT); // set ADC2 convert bit to 0
+    digital_write(HIGH, GPO_LORA_RF_SW_BIT);    // Set HIGH and let DIO2 control RF switch for TX/RX
+    digital_write(HIGH, GPO_ADC2_SHDN_BIT);     // set ADC2 to shutdown
+    digital_write(LOW, GPO_ADC2_CNV_BIT);       // set ADC2 convert bit to 0
     
     // configure the SPI controller
     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
 
-    // toggle HMC unit
-    set_hmc();
-
     // initialize variables
-    unsigned int timer = 0;
-    unsigned int led = 0;
-
-    // unsigned int ctrl_reg1 = 0x20; // CTRL_REG1 address for ILS328 accelerometer
-    // unsigned int ctrl_reg1_value = 0x27;
-    // unsigned int x_reg_lo = 0x28; // OUT_X_L register address for ILS328 accelerometer
-    // unsigned int x_reg_hi = 0x29; // OUT_X_H register address for ILS328 accelerometer
-    // unsigned int x_lo = 0;
-    // unsigned int x_hi = 0;
-    // unsigned int x_val = 0;
-
-    unsigned int ctrl_reg1_read = 0;
-
+    unsigned int timer = 0; 
+    unsigned int led = 0; 
+    unsigned int counter = 0; 
+    unsigned int vbat = 0;
+    // initialize lora radio
+    sx1262_configure_essentials();
 
 
     while (1)
     {
-        if (read_timer() > 1000000) {
-            set_counter();
-            set_leds(led);
+        if (read_timer() > 1000000) {               
+            set_counter(); // reset timer counter
+            
+            set_leds(led); // blink led
             led = ~led & 0x1;
 
+            sx1262_set_pa_config();
+            
+            counter++; // increment counter
+            print_str("[LOG] - Timer tick - ");
+            print_dec_u16(counter, 1);        
+            
+            vbat = read_xadc(); // read battery voltage from XADC
+            print_str("[LOG] - battery voltage: ");
+            print_dec_u16(vbat, 1);
+
+            print_str("[LOG] - HMC axis 1: ");
+            print_dec_u16(read_hmc_axis(1), 1);
+
+            print_str("[LOG] - HMC axis 2: ");
+            print_dec_u16(read_hmc_axis(2), 1);
+
+            print_str("[LOG] - HMC axis 3: ");
+            print_dec_u16(read_hmc_axis(3), 1);
+
+            // // test SPI communication with SX1262 LoRa radio. when done this will be moved to a seperate function
             // if (sx1262_sanity_check()) {
-            //     print_str("SX1262 sanity check passed!\r\n");
+
+            //     print_str("[LOG] - SX1262: Transmitting packet\r\n");
+            //     sx1262_transmit(counter); // transmit the counter value as the payload in a LoRa packet
+            //     print_str("[LOG] - SX1262: going into standby mode\r\n");
+            //     sx1262_set_power_mode(STANDBY_RC_MODE);     
+
             // } else {
-            //     print_str("SX1262 sanity check failed!\r\n");
+            //     print_str("[LOG] - SX1262: radio failure\r\n");
             // }
 
-            // if (accel_sanity_check()) {
-            //     print_str("Accelerometer sanity check passed!\r\n");
-            //     accel_rw_register(0x20, 0x27, 0, 0);
-            //     ctrl_reg1_read = accel_rw_register(0x20, 0, 1, 0);
-            //     print_str("Control register 1: 0x");
-            //     print_hex(ctrl_reg1_read, 2, 1);
-            //     unsigned int x_lo = accel_rw_register(0x28, 0, 1, 0);
-            //     unsigned int x_hi = accel_rw_register(0x29, 0, 1, 0);
-            //     unsigned int x_val = (x_hi << 8) | x_lo;
-            //     print_str("X-axis value: 0x");
-            //     print_hex(x_val, 4, 1);
-            // } else {
-            //     print_str("Accelerometer sanity check failed!\r\n");
-            // }                                    
+            // print_str("[LOG] - Main loop iteration complete\r\n");
         }
     }
 }
 
-
-// safe for later
-// // if (sx1262_sanity_check()) {
-//             //     print_str("SX1262 sanity check passed!\r\n");
-//             // } else {
-//             //     print_str("SX1262 sanity check failed!\r\n");
-//             // }
-
-//             if (accel_sanity_check()) {
-//                 print_str("Accelerometer sanity check passed!\r\n");
-//                 // set in normal mode            
-//                 accel_rw_register(0x20, 0x27, 0, 0); 
-//                 // check that we can read back the value we just set
-//                 print_str("Control register 1: 0x");
-//                 ctrl_reg1_read = accel_rw_register(0x20, 0, 1, 0);
-//                 print_hex(ctrl_reg1_read, 2, 1);
-
-//                 // delay_cycles(100);
-//                 // // read accel x-axis
-//                 // x_lo = accel_rw_register(x_reg_lo, 0, 1, 0); // read OUT_X_L register
-//                 // x_hi = accel_rw_register(x_reg_hi, 0, 1, 0); // read OUT_X_H register
-//                 // // combine the low and high bytes to get the full 16-bit value
-//                 // x_val = (x_hi << 8) | x_lo;
-//                 // print_hex(x_val, 4, 1);
-//             } else {
-//                 print_str("Accelerometer sanity check failed!\r\n");
-//             }
-
-
-
-// int main() {
-//     set_counter();
-
-//     int timer = 0x0;
-//     int counter = 0x0;
-//     int xadc_value = 0x0;
-//     int busy = 0x0;
-
-//     spi_configure(0, 0, 120);
-//     spi_set_slave(1);
-
-//     while (1) {
-//         read_timer(&timer);        
-    
-//         if (timer > 1000000) {
-//             set_counter();
-//             counter++;
-//             print_str("Counter: 0x");
-//             print_hex(counter, 4, 1); 
-            
-//             // if NOT busy
-//             busy = spi_read_reg(SPI_STATUS_ADDR) & 0x1;
-//             if (!busy) {
-//                 // Write TX data 
-//                 spi_write_reg(SPI_TX_DAT_ADDR, counter);
-
-//                 // Trigger start pulse
-//                 unsigned int ctrl = spi_read_reg(SPI_CNTRL_ADDR);
-//                 spi_write_reg(SPI_CNTRL_ADDR, ctrl | 0x1);
-//             }
-//         }
-//     }
-//     return 0;
-// }
-
-
-// int main() {
+// int main(void)
+// {
 //     set_counter();
 
 //     // set SPI slaves to inactive (CS high)
 //     digital_write(HIGH, GPO_ACCEL_CS_BIT);
 //     digital_write(HIGH, GPO_LORA_CS_BIT);
 //     digital_write(HIGH, GPO_ADC2_CS_BIT);
+//     digital_write(HIGH, GPO_LORA_RF_SW_BIT); // set LoRa RF switch to RX
+//     digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 to shutdown
+//     digital_write(LOW, GPO_ADC2_CNV_BIT); // set ADC2 convert bit to 0
+    
+//     // configure the SPI controller
+//     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
 
-//     int timer = 0x0;
-//     int led = 0x0;
-//     int counter = 0x0;
-//     int xadc_value = 0x0;
+//     // toggle HMC unit
+//     set_hmc();
+
+//     // initialize variables
+//     unsigned int timer, led, vbat, axis_val = 0;
+//     unsigned int ctrl_reg1_read = 0;
+
+//     // photodiode outputs on ADC2 channels
+//     unsigned int PD1, PD2, PD3, PD4 = 0;
 
 
-//     while (1) {
-//         read_timer(&timer);
-//         read_xadc(&xadc_value);
-//         delay_cycles(10);
-//         if (timer > 1000000) {
+//     while (1)
+//     {
+//         if (read_timer() > 1000000) {
 //             set_counter();
-//             counter++;
-//             print_str("Counter: 0x");
-//             print_hex(counter, 4, 1);
-//             print_str("XADC: 0x");
-//             print_hex(xadc_value, 8, 1);
 //             set_leds(led);
-//             led = ~led;
+//             led = ~led & 0x1;
+
+//             if (sx1262_sanity_check()) {
+//                 print_str("SX1262 sanity check passed!\r\n");
+//             } else {
+//                 print_str("SX1262 sanity check failed!\r\n");
+//             }
+
+//             // if (accel_sanity_check()) {
+//             //     print_str("Accelerometer sanity check passed!\r\n");
+//             //     accel_rw_register(0x20, 0x27, 0, 0);
+//             //     ctrl_reg1_read = accel_rw_register(0x20, 0, 1, 0);
+//             //     print_str("Control register 1: 0x");
+//             //     print_hex(ctrl_reg1_read, 2, 1);
+//             //     unsigned int x_lo = accel_rw_register(0x2C, 0, 1, 0);
+//             //     unsigned int x_hi = accel_rw_register(0x2D, 0, 1, 0);
+//             //     unsigned int x_val = (x_hi << 8) | x_lo;
+//             //     print_str("X-axis value: 0x");
+//             //     print_hex(x_val, 4, 1);
+//             // } else {
+//             //     print_str("Accelerometer sanity check failed!\r\n");
+//             // }  
+            
+//             vbat = read_xadc();
+//             print_str("Vbat: ");
+//             print_dec_u16(vbat, 1);            
+
+//             // read ADC2 channels for photodiode values
+//             read_ADC2(&PD1, &PD2, &PD3, &PD4);
+//             print_str("PD1: ");
+//             print_dec_u16(PD1, 0);
+//             print_str(" PD2: ");
+//             print_dec_u16(PD2, 0);
+//             print_str(", PD3: ");
+//             print_dec_u16(PD3, 0);
+//             print_str(", PD4: ");
+//             print_dec_u16(PD4, 1);
+
+//             print_str("HMC axis 1: dec16=");
+//             axis_val = read_hmc_axis(1);
+//             print_dec_u16(axis_val, 1);
+
+//             print_str("HMC axis 2: dec16=");
+//             axis_val = read_hmc_axis(2);
+//             print_dec_u16(axis_val, 1);
+
+//             print_str("HMC axis 3: dec16=");
+//             axis_val = read_hmc_axis(3);
+//             print_dec_u16(axis_val, 1);
 //         }
 //     }
-//     return 0;
 // }
+
+

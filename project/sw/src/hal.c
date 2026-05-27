@@ -52,11 +52,11 @@ void uart_write_byte(unsigned int c) {
 
 /**
  * Read the current value from the XADC.
- * @param value Pointer to store the read XADC value
+ * @return The current value from the XADC
  */
-void read_xadc(unsigned int *value) {
+unsigned int read_xadc() {
     volatile unsigned int *xadc = (volatile unsigned int *)XADC_ADDR;
-    *value = *xadc;
+    return *xadc;
 }
 
 /**

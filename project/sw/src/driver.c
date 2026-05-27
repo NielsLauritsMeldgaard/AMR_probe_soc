@@ -23,6 +23,37 @@ void print_hex(unsigned int value, unsigned int nibbles, unsigned int newline) {
 }
 
 /**
+ * Write an unsigned integer as a decimal string to the UART.
+ * @param v The value to write (will be capped at 65535)
+ * @param newline Whether to add a newline character
+ */
+void print_dec_u16(unsigned int v, unsigned int newline) {
+    if (v > 65535u) v = 65535u;
+
+    unsigned int d;
+    int started = 0;
+
+    d = 0; while (v >= 10000u) { v -= 10000u; d++; }
+    if (d || started) { uart_write_byte('0' + d); started = 1; }
+
+    d = 0; while (v >= 1000u) { v -= 1000u; d++; }
+    if (d || started) { uart_write_byte('0' + d); started = 1; }
+
+    d = 0; while (v >= 100u) { v -= 100u; d++; }
+    if (d || started) { uart_write_byte('0' + d); started = 1; }
+
+    d = 0; while (v >= 10u) { v -= 10u; d++; }
+    if (d || started) { uart_write_byte('0' + d); started = 1; }
+
+    uart_write_byte('0' + (unsigned int)v);
+
+    if (newline) {
+        uart_write_byte('\r'); // Optional: newline for readability
+        uart_write_byte('\n');
+    }
+}
+
+/**
  * Prints a string to the UART.
  * @param str The null-terminated string to print
  */
@@ -81,53 +112,6 @@ unsigned int spi_transfer(unsigned int tx)
     return (unsigned int)(spi_read_reg(SPI_RX_DAT_ADDR) & 0xFFFFFFFF);
 }
 
-
-/**
- * Tests that SPI is communicating correctly with the radio.
- * If this fails, check your SPI wiring.  This does not require any setup to run.
- * We test the radio by reading a register that should have a known value.
- * @return True if radio is communicating over SPI. False if no connection.
- */
-unsigned int sx1262_sanity_check() {
-    unsigned int opcode = 0x1D; // opcode for "read register"
-    unsigned int addressToRead = 0x0741; // address of LoRa register
-    unsigned int rx = 0;
-    unsigned int tx = 0;
-    unsigned int expected = 0x24;
-
-    spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
-
-    // Example SPI transaction: read a register from the LoRa radio
-    digital_write(LOW, GPO_LORA_CS_BIT); // set LoRa CS low to select the slave
-    
-    // send opcode
-    while(digital_read(GPI_LORA_BUSY_BIT)) { } // Wait until lora is not busy    
-
-    tx = opcode; // send opcode first
-    rx = spi_transfer(tx);
-
-    // send address[15:8]
-    tx = (addressToRead >> 8) & 0xFF;
-    rx = spi_transfer(tx);
-
-    // send address[7:0]
-    tx = addressToRead & 0xFF;
-    rx = spi_transfer(tx);
-
-    // send dummy byte
-    tx = 0x00;
-    rx = spi_transfer(tx);
-
-    // send dummy byte to receive data
-    tx = 0x00;
-    rx = spi_transfer(tx);
-
-    digital_write(HIGH, GPO_LORA_CS_BIT); // set LoRa CS high to deselect the slave
-
-    return rx == expected; // return whether the read value matches the expected value
-
-}
-
 /**
  * Read or write to a register on the accelerometer over SPI
  * bit 0: RW bit. 1 for read, 0 for write
@@ -176,9 +160,56 @@ unsigned int accel_sanity_check() {
     unsigned int who_am_i_reg = 0x0F; // WHO_AM_I register address for ILS328 accelerometer
     unsigned int expected = 0x32;
     unsigned int actual = accel_rw_register(who_am_i_reg, 0, 1, 0); // read WHO_AM_I register
-    //debug 
-    // print_hex(actual, 2, 1); // print the read WHO_AM_I value for debugging
     return actual == expected;
+}
+
+/**
+ * Read all 24-bit packets for the four channels on the ADC2 (coarse suntracker ADC) over SPI
+ * ADC is the 16-bit SAR MUX LTC2357-16 from Analog Devices.
+ * Remeber to configure the spi controller before calling this function and to set the correct softcode for the ADC2 (see SOFTCODE define in driver.h and datasheet for details on how to generate the softcode).
+ * @param ch0 Pointer to store the 16-bit value read from ADC2 channel 0
+ * @param ch1 Pointer to store the 16-bit value read from ADC2 channel 1
+ * @param ch2 Pointer to store the 16-bit value read from ADC2 channel 2
+ * @param ch3 Pointer to store the 16-bit value read from ADC2 channel 3
+ * Note: This function will read two samples from the ADC2. The first sample is used to send the softcode and start the conversion, and the second sample is the actual converted values from the four channels.
+ */
+void read_ADC2(unsigned int *ch0, unsigned int *ch1, unsigned int *ch2, unsigned int *ch3) {
+    unsigned int adc2_rx_hi = 0;
+    unsigned int adc2_rx_mi = 0;
+    unsigned int adc2_rx_lo = 0;
+
+    digital_write(LOW, GPO_ADC2_CS_BIT);        // set ADC2 CS low to select the slave
+    digital_write(LOW, GPO_ADC2_SHDN_BIT);      // wake up ADC2
+    while( digital_read(GPI_ADC2_BUSY_BIT) );   // wait while ADC2 starting up
+
+    // read 2 samples from ADC2. First it needs to be programmed with the softcode and then it can be read. 
+    for (unsigned int n = 0; n < 2; n++) {
+        digital_write(HIGH, GPO_ADC2_CNV_BIT);      // pulse convert bit to start conversion
+        digital_write(LOW, GPO_ADC2_CNV_BIT);
+        while( digital_read(GPI_ADC2_BUSY_BIT) );   // wait while ADC2 is busy
+        
+        // read all 4 channels from ADC2
+        for (unsigned int i = 0; i < 4; i++) {
+            adc2_rx_hi = spi_transfer(SOFTCODE >> 8);   // send upper byte of softcode
+            adc2_rx_mi = spi_transfer(SOFTCODE & 0xFF); // send lower byte of softcode
+            adc2_rx_lo = spi_transfer(0x00);            // dummy transfer channel id and used softcode. Currentlty ignored but can be used for debugging or to verify that the correct softcode is being used.
+            
+            if (n > 0) {
+                if (i == 0) {
+                    *ch0 = ((adc2_rx_hi << 8) | adc2_rx_mi) & 0xFFFF; // 16-bit ADC value is in the upper byte and lower 4 bits of the middle byte
+                } else if (i == 1) {
+                    *ch1 = ((adc2_rx_hi << 8) | adc2_rx_mi) & 0xFFFF;
+                } else if (i == 2) {
+                    *ch2 = ((adc2_rx_hi << 8) | adc2_rx_mi) & 0xFFFF;
+                } else if (i == 3) {
+                    *ch3 = ((adc2_rx_hi << 8) | adc2_rx_mi) & 0xFFFF;
+                }
+            }
+        }
+    }
+
+    digital_write(HIGH, GPO_ADC2_CS_BIT);   // deselect the slave
+    digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 back to shutdown
 }
 
 

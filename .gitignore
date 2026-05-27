@@ -41,6 +41,5 @@ vivado/**/*.md
 # Do not ignore .xpr project file
 !vivado/**/*.xpr
 
-# Ignore all files in the build folder under sw
-project/sw/build/
-
+project/sw/build/*
+!project/sw/build/firmware.bin

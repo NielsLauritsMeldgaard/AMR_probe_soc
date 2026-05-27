@@ -55,9 +55,9 @@
 void set_leds(unsigned int value);
 void delay_cycles(unsigned int cycles);
 void uart_write_byte(unsigned int c);
-void set_counter(void);
+void set_counter();
 unsigned int read_timer();
-void read_xadc(unsigned int *value);
+unsigned int read_xadc();
 void spi_write_reg(unsigned int addr, unsigned int value);
 unsigned int spi_read_reg(unsigned int addr);
 void digital_write(unsigned int value, unsigned int IO_BIT);
