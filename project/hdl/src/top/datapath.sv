@@ -20,8 +20,9 @@ module datapath #(
     output logic        uart_tx,
     input  logic        uart_rx,
     output logic        driver_set, driver_rst,
-    input  logic [3:0]  JA_in,  // JA Header (4-pin input)
-    output logic [3:0]  JA_out, // JA Header (4-pin output)
+    
+    //input  logic [3:0]  JA_in,  // JA Header (4-pin input)
+    output logic [7:0]  JA_out, // JA Header (4-pin output)
 
     // --- accelerometer ---
     output logic accel_cs,  // Accelerometer Chip Select (active low) (SPI slave select)
@@ -138,8 +139,10 @@ module datapath #(
     logic [GPI_WIDTH-1:0] gpio_in;   // General Purpose Input from peripherals to IO manager
     logic MISO, MOSI, SCLK, SPI_SS; // SPI signals (shared between multiple peripherals, so we route them as separate signals rather than dedicated peripheral outputs)
     
-    logic dac_send;
+
     logic dac_busy;
+    
+    logic sample_en;
     always_comb begin
         // --- GLOBAL STALL LOGIC ---
         //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
@@ -163,14 +166,24 @@ module datapath #(
         adc2_cs         =       gpio_out[3];
         adc2_shdn       =       gpio_out[4];
         adc2_cnv        =       gpio_out[5];
-        JA_out          =       gpio_out[9:6];
+        
+        //DEBUG DAC SDIN OUT
+        //JA_out          =       gpio_out[9:6];
+        JA_out[7]       =       0;
+        JA_out[6]       =       0;
+        JA_out[5]       =       0;
+        JA_out[0]       =       adc1_sdi;
+        JA_out[1]       =       adc1_cnv;
+        JA_out[2]       =       adc1_sclk;
+        JA_out[3]       =       adc1_sdo[2]; 
+        JA_out[4]       =       sample_en;
         // Connect GPI physical pins to IO manager
         gpio_in[0]      =       accel_int1;
         gpio_in[1]      =       accel_int2;
         gpio_in[2]      =       lora_dio;
         gpio_in[3]      =       lora_busy;
         gpio_in[4]      =       adc2_busy;
-        gpio_in[8:5]    =       JA_in;
+        //gpio_in[8:5]    =       JA_in;
         // Distribute SPI signals from IO manager to peripherals (shared SPI bus)
         adc2_sclk       =       SCLK;
         lora_sclk       =       SCLK;
@@ -189,7 +202,7 @@ module datapath #(
         endcase
         // lora hardcoded value
         lora_rst        =       1; // Lora always active
-        dac_send = 1;  // allows dac to convert all incoming serial data to Vout
+
     end
 
     
@@ -305,6 +318,7 @@ module datapath #(
         //sr logic driver pins
         .driver_set(driver_set),
         .driver_rst(driver_rst),
+        .sample_enable(sample_en),
         
         .adc1_cnv(adc1_cnv),
         .adc1_sclk(adc1_sclk),
@@ -313,7 +327,6 @@ module datapath #(
         .adc1_sdo(adc1_sdo),
         .adc1_shdn(adc1_shdn),
         .adc1_cs(adc1_cs),
-        .dac_send(dac_send),           // start conversion dac
         .dac_busy(dac_busy), 
         .dac_rst(dac_rst),
         .dac_sclk(dac_sclk),

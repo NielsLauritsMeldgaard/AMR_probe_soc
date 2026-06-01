@@ -21,7 +21,7 @@ module mag_sensor_processor_unit (
     input  logic        adc_sdo2,           // Channel 2 data (HMC axis 3)
     
     // AD5686R DAC interface
-    input  logic        dac_send,           // start conversion dac
+
     output logic        dac_busy, 
     output logic        dac_rst,
     output logic        dac_sclk,
@@ -29,11 +29,12 @@ module mag_sensor_processor_unit (
     output logic        dac_sync,
     output logic        dac_ldac,
     
-    output logic signed [31:0] field_ch0,
-    output logic signed [31:0] field_ch1,
-    output logic signed [31:0] field_ch2,
+    output logic [31:0] field_ch0,
+    output logic [31:0] field_ch1,
+    output logic [31:0] field_ch2,
   
-    output logic               result_valid
+    output logic        result_valid,
+    output logic        sample_enable
 );
 
 
@@ -50,8 +51,8 @@ module mag_sensor_processor_unit (
     // ADC controller -> mag processor logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     logic        adc_data_valid;
     logic        dac_busy_;
-
-
+    logic [15:0] dac_ch0, dac_ch1, dac_ch2;
+    logic        dac_send;
 
   
 
@@ -65,8 +66,8 @@ module mag_sensor_processor_unit (
     sr_driver_gen #(
         .CLK_FREQ_HZ    (12_000_000),
         .PULSE_TIME_US  (2),
-        .SETTLE_TIME_US (10),
-        .WINDOW_TIME_US (2460),
+        .SETTLE_TIME_US (1000),
+        .WINDOW_TIME_US (2480),
         .GAP_TIME_US    (20)
     ) sr_driver_inst (
         .clk       (clk_12mhz),
@@ -86,11 +87,12 @@ module mag_sensor_processor_unit (
         .TCONV          (550),
         .N_CHANNELS     (3),
         .TQUIET         (20),
-        .WINDOW_TIME_US (2460)
+        .WINDOW_TIME_US (1478)
     ) adc_ctrl_inst (
         .clk          (clk_12mhz),
         .rst          (rst),
         .sample_en    (sample_en),
+        .phase        (phase),
         .cnv          (adc_cnv),
         .sck          (adc_sck),
         .sdi          (adc_sdi),
@@ -115,7 +117,8 @@ module mag_sensor_processor_unit (
         .TCNVH          (40),
         .TCONV          (550),
         .TQUIET         (20),
-        .WINDOW_TIME_US (2460)
+        .WINDOW_TIME_US (1478),
+        .INTEG_SHIFT    (9)
     ) mag_data_inst (
         .clk          (clk_12mhz),
         .rst          (rst),
@@ -130,7 +133,12 @@ module mag_sensor_processor_unit (
         .field_ch1    (field_ch1),
         .field_ch2    (field_ch2),
         .result_valid (result_valid),
-        .final_sample (final_samp)
+        .final_sample (final_samp),
+            // DAC feedback outputs
+        .dac_ch0(dac_ch0),
+        .dac_ch1(dac_ch1),
+        .dac_ch2(dac_ch2),
+        .dac_send(dac_send)
     );
     
     dac_controller dac_ctrl_inst(
@@ -140,11 +148,10 @@ module mag_sensor_processor_unit (
         // inputs to dac 
         .reset_n(dac_rst),
         .ldac_n(dac_ldac),
-        
         .send(dac_send),
-        .data_a(field_ch0), // value for DAC A
-        .data_b(field_ch1), // value for DAC B
-        .data_c(field_ch2), // value for DAC C
+        .data_a(dac_ch0), // value for DAC A
+        .data_b(dac_ch1), // value for DAC B
+        .data_c(dac_ch2), // value for DAC C
         .busy(dac_busy_), // high while transfer in progress
         // SPI signals
         .sclk(dac_sclk),
@@ -152,4 +159,5 @@ module mag_sensor_processor_unit (
         .sync_n(dac_sync)
     );
     assign dac_busy = dac_busy_;
+    assign sample_enable = sample_en;
 endmodule
