@@ -60,7 +60,7 @@ module adc_controller #(
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW =  int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW = 20;// int'($floor(WINDOW_NS / tCYC));
     localparam int SAMPLE_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                   $clog2(SAMPLES_RAW) :      // already power of 2
                                     $clog2(SAMPLES_RAW) - 1;   // round down

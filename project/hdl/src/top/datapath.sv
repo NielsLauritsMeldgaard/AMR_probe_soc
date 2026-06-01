@@ -200,9 +200,8 @@ module datapath #(
             3'b101: MISO = lora_miso; // Connect to LoRa MISO when lora_cs is active
             3'b110: MISO = adc2_miso; // Connect to ADC2 MISO when adc2_cs is active
             default: MISO = 1'b1; // High impedance for invalid states (both CS active, which shouldn't happen)
-        endcase
-        // lora hardcoded value        
-        dac_send = 1;  // allows dac to convert all incoming serial data to Vout
+        endcase        
+        //dac_send = 1;  // allows dac to convert all incoming serial data to Vout
     end
 
     

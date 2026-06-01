@@ -57,18 +57,18 @@ module mag_datapath #(
     // tCYC in ns
     localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
                        * NS_PER_TICK;
-    localparam signed [15:0] ADC_OFFSET = 16'd26843;  // 2.5V midpoint in straight binary
-
+    localparam signed [15:0] ADC_OFFSET = 16'd32768;  // 2.5V midpoint in straight binary
+    localparam [15:0] ADC_MID = 16'd26843;
     
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW = 20; //int'($floor(WINDOW_NS / tCYC));
     localparam int SHIFT_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                    $clog2(SAMPLES_RAW) :      // already power of 2
                                   $clog2(SAMPLES_RAW) - 1;   // round down
    localparam int SAMPLES     = 1 << SHIFT_BITS; 
-
+     
      // integrator clamp: ±half DAC range so midscale ± integ never wraps
     localparam  [ACC_WIDTH-1:0] INT_MAX =  16'd65535;
     localparam  [ACC_WIDTH-1:0] INT_MIN = 16'd0;
@@ -76,13 +76,13 @@ module mag_datapath #(
 
 
     // SET and RESET accumulators for each channel
-    logic  [ACC_WIDTH-1:0] acc_set0_q, acc_set0_d;
-    logic  [ACC_WIDTH-1:0] acc_set1_q, acc_set1_d;
-    logic  [ACC_WIDTH-1:0] acc_set2_q, acc_set2_d;
+    logic signed [ACC_WIDTH-1:0] acc_set0_q, acc_set0_d;
+    logic signed [ACC_WIDTH-1:0] acc_set1_q, acc_set1_d;
+    logic signed [ACC_WIDTH-1:0] acc_set2_q, acc_set2_d;
 
-    logic  [ACC_WIDTH-1:0] acc_rst0_q, acc_rst0_d;
-    logic  [ACC_WIDTH-1:0] acc_rst1_q, acc_rst1_d;
-    logic  [ACC_WIDTH-1:0] acc_rst2_q, acc_rst2_d;
+    logic signed [ACC_WIDTH-1:0] acc_rst0_q, acc_rst0_d;
+    logic signed [ACC_WIDTH-1:0] acc_rst1_q, acc_rst1_d;
+    logic signed [ACC_WIDTH-1:0] acc_rst2_q, acc_rst2_d;
     
     //demodulated signals
     logic signed [ACC_WIDTH-1:0] error0_q, error0_d;
@@ -117,6 +117,8 @@ module mag_datapath #(
         send_d       = 1'b0;
         final_samp_d = final_samp_q;
         
+  
+
 
 
         // Accumulate incoming samples into SET or RESET accumulators
@@ -124,17 +126,16 @@ module mag_datapath #(
         if (data_valid && sample_en) begin
             if (!data_phase) begin
                 // SET phase, accumulate positively
-                acc_set0_d = acc_set0_q + ACC_WIDTH'(ch0_data);
-                acc_set1_d = acc_set1_q + ACC_WIDTH'(ch1_data );
-                acc_set2_d = acc_set2_q + ACC_WIDTH'(ch2_data );
+                acc_set0_d = acc_set0_q + (signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_MID}));
+                acc_set1_d = acc_set1_q + (signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_MID}));
+                acc_set2_d = acc_set2_q + (signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_MID}));
                  
 
             end else begin
                 // RESET phase, accumulate into separate register
-                acc_rst0_d = acc_rst0_q + ACC_WIDTH'(ch0_data);
-                acc_rst1_d = acc_rst1_q + ACC_WIDTH'(ch1_data);
-                acc_rst2_d = acc_rst2_q + ACC_WIDTH'(ch2_data);
-                
+                acc_rst0_d = acc_rst0_q + (signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_MID}));
+                acc_rst1_d = acc_rst1_q + (signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_MID}));
+                acc_rst2_d = acc_rst2_q + (signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_MID}));
                 
                 
             end
@@ -150,13 +151,12 @@ module mag_datapath #(
             // Subtract accumulators - offset cancels, field doubles
             // synchronous demodulation: error = (SET - RESET) >> SHIFT_BITS
             // offset cancels, field signal doubles
-            error0_d = ((signed'(acc_set0_q) - signed'(acc_rst0_q)) >>> SHIFT_BITS)>>>1;
+            error0_d = ((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1;
             
-            error1_d = ((signed'(acc_set1_q) - signed'(acc_rst1_q)) >>> SHIFT_BITS)>>>1;
+            error1_d = ((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1;
+            error2_d = ((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1;
             
-            error2_d = ((signed'(acc_set2_q) - signed'(acc_rst2_q)) >>> SHIFT_BITS)>>>1;
-            
-            
+    
             integ0_d = integ0_q + (error0_d >>> INTEG_SHIFT);
             integ1_d = integ1_q + (error1_d >>> INTEG_SHIFT);
             integ2_d = integ2_q + (error2_d >>> INTEG_SHIFT);
