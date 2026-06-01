@@ -8,7 +8,7 @@ module datapath #(
     parameter INSTRUCTION_MEM_WORDS = 32768, // 131072 bytes or 128 KB  
     parameter DATA_MEM_WORDS = 16384, // 65536 bytes or 64 KB
     parameter BOOTLOADER_MEM_WORDS = 84,
-    parameter GPO_WIDTH = 10, // Number of general purpose output pins
+    parameter GPO_WIDTH = 11, // Number of general purpose output pins
     parameter GPI_WIDTH = 9 // Number of general purpose input pins
 )(
     input logic clk, 
@@ -164,6 +164,7 @@ module datapath #(
         adc2_shdn       =       gpio_out[4];
         adc2_cnv        =       gpio_out[5];
         JA_out          =       gpio_out[9:6];
+        lora_rst        =       gpio_out[10];
         // Connect GPI physical pins to IO manager
         gpio_in[0]      =       accel_int1;
         gpio_in[1]      =       accel_int2;
@@ -187,8 +188,7 @@ module datapath #(
             3'b110: MISO = adc2_miso; // Connect to ADC2 MISO when adc2_cs is active
             default: MISO = 1'b1; // High impedance for invalid states (both CS active, which shouldn't happen)
         endcase
-        // lora hardcoded value
-        lora_rst        =       1; // Lora always active
+        // lora hardcoded value        
         dac_send = 1;  // allows dac to convert all incoming serial data to Vout
     end
 

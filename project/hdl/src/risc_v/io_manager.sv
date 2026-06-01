@@ -38,7 +38,7 @@
 // ------------------------------------------------------------
 
 module io_manager #(
-        parameter GPO_WIDTH = 10, // Number of general purpose output pins
+        parameter GPO_WIDTH = 11, // Number of general purpose output pins
         parameter GPI_WIDTH = 9 // Number of general purpose input pins    
     )(
     input  logic        clk, rst,
@@ -196,8 +196,8 @@ module io_manager #(
             4'b0110: wb_dat_o_next = dat_o_spi; // SPI status register
             4'b0111: wb_dat_o_next = dat_o_spi; // Reserved
             4'b1000: wb_dat_o_next = {20'b0, adc_value}; // XADC readout
-            4'b1001: wb_dat_o_next = {23'b0, gpio_out_reg}; // GPO register (read current register output status) 
-            4'b1010: wb_dat_o_next = {24'b0, gpio_in_reg};  // GPO register (read GPI status)
+            4'b1001: wb_dat_o_next = {21'b0, gpio_out_reg}; // GPO register (read current register output status) 
+            4'b1010: wb_dat_o_next = {23'b0, gpio_in_reg};  // GPO register (read GPI status)
             4'b1100: wb_dat_o_next = field0_data;
             4'b1101: wb_dat_o_next = field1_data;
             4'b1110: wb_dat_o_next = field2_data;
@@ -213,7 +213,7 @@ module io_manager #(
             leds     <= 2'h0;
             wb_dat_o <= 32'b0;
             gpio_in_reg <= 9'b0;
-            gpio_out_reg <= 10'b0;
+            gpio_out_reg <= 11'b0;
         end else begin
             // multi-Cycle Ack logic
             wb_ack_o <= wb_stb_i;
