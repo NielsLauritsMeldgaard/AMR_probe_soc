@@ -5,7 +5,7 @@ module sr_driver_gen #(
     parameter int CLK_FREQ_HZ    = 12_000_000,  
 
     parameter int PULSE_TIME_US  = 2 ,             // S/R pulse duration
-    parameter int SETTLE_TIME_US = 10,            // Post-pulse settling (5*tau)
+    parameter int SETTLE_TIME_US = 1000,            // Post-pulse settling (5*tau)
     parameter int WINDOW_TIME_US = 2480,          // Sampling window duration
     parameter int GAP_TIME_US    = 20             // Off-period between phases
 )(
@@ -106,7 +106,7 @@ module sr_driver_gen #(
                  sample_en = 1'b1;
                  set_sig = 1'b1;
                  phase     = 1'b0;  // SET phase
-                if (timer_q >= (WINDOW_TICKS-SETTLE_TICKS-PULSE_TICKS) - 1) begin
+                if (timer_q >= ((WINDOW_TICKS-SETTLE_TICKS)-PULSE_TICKS) - 1) begin
                     state_d = ST_RST_GAP;
                     timer_d = '0;
                 end
@@ -144,7 +144,7 @@ module sr_driver_gen #(
                 sample_en = 1'b1;
                 reset_sig = 1'b1;
                 phase     = 1'b1;  // RESET phase
-                if (timer_q >= (WINDOW_TICKS-SETTLE_TICKS-PULSE_TICKS) - 1) begin
+                if (timer_q >= ((WINDOW_TICKS-SETTLE_TICKS)-PULSE_TICKS) - 1) begin
                     state_d = ST_SET_GAP;
                     timer_d = '0;
                 end

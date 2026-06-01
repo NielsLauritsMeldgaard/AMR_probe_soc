@@ -76,7 +76,7 @@ module io_manager #(
     output logic adc1_cnv, // ADC Convert Start Signal 
     output logic adc1_shdn, // ADC Shutdown Control  
     
-    input  logic dac_send,           // start conversion dac
+
     output logic dac_busy, 
     output logic dac_rst,
     output logic dac_sclk,
@@ -85,7 +85,8 @@ module io_manager #(
     output logic dac_ldac,
     
     // sr driver pins
-    output logic        driver_set, driver_rst
+    output logic        driver_set, driver_rst,
+    output logic        sample_enable
 );
     // --- Internal Wires ---
     logic [3:0]           word_index;
@@ -104,10 +105,11 @@ module io_manager #(
     logic [GPI_WIDTH-1:0] gpio_in_reg;
     logic [GPO_WIDTH-1:0] gpio_out_reg;
     logic                 toggle;
-    logic [31:0]          field0_data; // magnetic fields data from mag_datapath
-    logic [31:0]          field1_data;
-    logic [31:0]          field2_data;
+    logic [15:0]          field0_data; // magnetic fields data from mag_datapath
+    logic [15:0]          field1_data;
+    logic [15:0]          field2_data;
     logic               mag_result_valid;
+    logic               sample_en;
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
         .clk(clk), .rst(rst),
@@ -154,7 +156,6 @@ module io_manager #(
         .adc_sdo0(adc1_sdo[0]),
         .adc_sdo1(adc1_sdo[1]),
         .adc_sdo2(adc1_sdo[2]),
-        .dac_send(dac_send),           // start conversion dac
         .dac_busy(dac_busy), 
         .dac_rst(dac_rst),
         .dac_sclk(dac_sclk),
@@ -164,7 +165,8 @@ module io_manager #(
         .field_ch0(field0_data),
         .field_ch1(field1_data),
         .field_ch2(field2_data),
-        .result_valid(mag_result_valid)
+        .result_valid(mag_result_valid),
+        .sample_enable(sample_en)
     );
 
 
@@ -228,4 +230,5 @@ module io_manager #(
         end
     end
     assign adc1_shdn = 0;
+    assign sample_enable = sample_enable;
 endmodule
