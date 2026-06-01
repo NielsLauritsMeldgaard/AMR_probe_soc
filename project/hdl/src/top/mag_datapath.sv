@@ -85,28 +85,20 @@ module mag_datapath #(
     logic  [ACC_WIDTH-1:0] acc_rst2_q, acc_rst2_d;
     
     //demodulated signals
-    logic  [ACC_WIDTH-1:0] error0_q, error0_d;
-    logic  [ACC_WIDTH-1:0] error1_q, error1_d;
-    logic  [ACC_WIDTH-1:0] error2_q, error2_d;
+    logic signed [ACC_WIDTH-1:0] error0_q, error0_d;
+    logic signed [ACC_WIDTH-1:0] error1_q, error1_d;
+    logic signed [ACC_WIDTH-1:0] error2_q, error2_d;
     
     // integrator wires
-    logic  [ACC_WIDTH-1:0] integ0_q, integ0_d;
-    logic  [ACC_WIDTH-1:0] integ1_q, integ1_d;
-    logic  [ACC_WIDTH-1:0] integ2_q, integ2_d;
+    logic signed [ACC_WIDTH-1:0] integ0_q, integ0_d;
+    logic signed [ACC_WIDTH-1:0] integ1_q, integ1_d;
+    logic signed [ACC_WIDTH-1:0] integ2_q, integ2_d;
     // Output registers
     logic       valid_q,  valid_d;
     logic [1:0] final_samp_d, final_samp_q;
     logic       send_q,  send_d;
     
-    function automatic logic  [ACC_WIDTH-1:0] sat_add(
-        input logic  [ACC_WIDTH-1:0] state,
-        input logic  [ACC_WIDTH-1:0] delta
-    );
-        logic  [ACC_WIDTH:0] sum;
-        sum = {state[ACC_WIDTH-1], state} + {delta[ACC_WIDTH-1], delta};
-        return sum[ACC_WIDTH-1:0];
-    endfunction
-
+    
     always_comb begin
         // Defaults 
         acc_set0_d   = acc_set0_q;
@@ -158,12 +150,13 @@ module mag_datapath #(
             // Subtract accumulators - offset cancels, field doubles
             // synchronous demodulation: error = (SET - RESET) >> SHIFT_BITS
             // offset cancels, field signal doubles
-            error0_d = ((acc_set0_q - acc_rst0_q) >> SHIFT_BITS)>>2;
+            error0_d = ((signed'(acc_set0_q) - signed'(acc_rst0_q)) >>> SHIFT_BITS)>>>1;
             
-            error1_d = ((acc_set1_q - acc_rst1_q) >> SHIFT_BITS)>>2;
-            error2_d = ((acc_set2_q - acc_rst2_q) >> SHIFT_BITS)>>2;
+            error1_d = ((signed'(acc_set1_q) - signed'(acc_rst1_q)) >>> SHIFT_BITS)>>>1;
             
-    
+            error2_d = ((signed'(acc_set2_q) - signed'(acc_rst2_q)) >>> SHIFT_BITS)>>>1;
+            
+            
             integ0_d = integ0_q + (error0_d >>> INTEG_SHIFT);
             integ1_d = integ1_q + (error1_d >>> INTEG_SHIFT);
             integ2_d = integ2_q + (error2_d >>> INTEG_SHIFT);
@@ -222,17 +215,17 @@ module mag_datapath #(
     // Output assignments
     // -------------------------------------------------------------------------
     // field outputs: integrator state, signed, centred at 0
-    assign field_ch0   = integ0_q;
-    assign field_ch1   = integ1_q;
-    assign field_ch2   = integ2_q;
+    assign field_ch0   = error0_q;
+    assign field_ch1   = error1_q;
+    assign field_ch2   = error2_q;
     assign result_valid = valid_q;
 
     // DAC outputs: integrator state offset by midscale
     // integ=0 → DAC=32768 → 2.5V → zero feedback current → null
     // integ>0 → DAC>midscale → positive coil current cancels positive field
     // integ<0 → DAC<midscale → negative coil current cancels negative field
-    assign dac_ch0 = integ0_q[15:0];
-    assign dac_ch1 = integ1_q[15:0];
-    assign dac_ch2 =  integ2_q[15:0];
+    assign dac_ch0 = ADC_OFFSET;
+    assign dac_ch1 = ADC_OFFSET;
+    assign dac_ch2 = ADC_OFFSET;
     assign dac_send = send_q;
 endmodule

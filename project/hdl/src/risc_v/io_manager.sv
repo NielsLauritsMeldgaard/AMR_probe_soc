@@ -105,9 +105,9 @@ module io_manager #(
     logic [GPI_WIDTH-1:0] gpio_in_reg;
     logic [GPO_WIDTH-1:0] gpio_out_reg;
     logic                 toggle;
-    logic [31:0]          field0_data; // magnetic fields data from mag_datapath
-    logic [31:0]          field1_data;
-    logic [31:0]          field2_data;
+    logic [15:0]          field0_data; // magnetic fields data from mag_datapath
+    logic [15:0]          field1_data;
+    logic [15:0]          field2_data;
     logic               mag_result_valid;
     logic               sample_en;
     // --- 3. SUB-MODULE INSTANTIATIONS ---

@@ -60,7 +60,7 @@ module adc_controller #(
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW =  int'($floor(WINDOW_NS / tCYC));
     localparam int SAMPLE_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                   $clog2(SAMPLES_RAW) :      // already power of 2
                                     $clog2(SAMPLES_RAW) - 1;   // round down
@@ -83,6 +83,7 @@ module adc_controller #(
         ST_DONE             // Assert data_valid for one cycle
     } state_t;
     
+    logic phase_d, phase_q;
     // internal registers for state, timers, counters, signals and SPI clk
     state_t      state_q,        state_d;
     logic [7:0]  timer_q,        timer_d;            // General purpose tick counter
@@ -106,6 +107,7 @@ module adc_controller #(
     logic [15:0] ch1_q, ch1_d;
     logic [15:0] ch2_q, ch2_d;
     logic data_valid_d, data_valid_q;
+    
 
    // logic sample_en_meta, sample_en_sync;
     // in use when using CDC
@@ -139,7 +141,7 @@ module adc_controller #(
      ch2_d          = ch2_q;
      final_sample   = 0;
      sample_count_d = sample_count_q;
-   
+    phase_d = phase;
      
      scki_rising  = 1'b0;
      scki_falling = 1'b0;
@@ -151,7 +153,7 @@ module adc_controller #(
                
                scki_d    = 1'b0;
                data_valid_d = 0;
-                if (sample_en) begin
+                if (sample_en &&(phase_d != phase_q) ) begin
                 state_d = ST_CNV_PULSE;
                 timer_d = 0;
                 
@@ -286,7 +288,8 @@ module adc_controller #(
          ch1_q          <= 16'b0;
          ch2_q          <= 16'b0; 
          sample_count_q <= 0;
-         data_valid_q   <= 0;  
+         data_valid_q   <= 0;
+         phase_q        <= 0;  
          
         end else begin
         state_q        <= state_d;
@@ -296,6 +299,7 @@ module adc_controller #(
         startup_done_q <= startup_done_d;
         sample_count_q <= sample_count_d;
         data_valid_q   <= data_valid_d;
+        phase_q        <= phase_d;
        
         //shift registers
         sr0_q <= sr0_d;
