@@ -56,15 +56,17 @@ module adc_controller #(
     // tCYC in ns
     localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
                        * NS_PER_TICK;
+
     
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = 20;// int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW = 256; //int'($floor(WINDOW_NS / tCYC));
     localparam int SAMPLE_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
-                                  $clog2(SAMPLES_RAW) :      // already power of 2
-                                    $clog2(SAMPLES_RAW) - 1;   // round down
-    localparam int SAMPLES     = 1 << SAMPLE_BITS; 
+                                   $clog2(SAMPLES_RAW) :      // already power of 2
+                                  $clog2(SAMPLES_RAW) - 1;   // round down
+   localparam int SAMPLES     = 1 << SAMPLE_BITS; 
+     
 
     // Configuration word
     // LTC2357-16 config: 000 101 101 101 => unipolar input range: 0V to 2xVREF where VREF=2.5V from DAC bandgap so 0V to 5V
@@ -83,7 +85,7 @@ module adc_controller #(
         ST_DONE             // Assert data_valid for one cycle
     } state_t;
     
-    logic phase_d, phase_q;
+    logic sample_en_d, sample_en_q;
     // internal registers for state, timers, counters, signals and SPI clk
     state_t      state_q,        state_d;
     logic [7:0]  timer_q,        timer_d;            // General purpose tick counter
@@ -141,7 +143,7 @@ module adc_controller #(
      ch2_d          = ch2_q;
      final_sample   = 0;
      sample_count_d = sample_count_q;
-    phase_d = phase;
+    sample_en_d = sample_en;
      
      scki_rising  = 1'b0;
      scki_falling = 1'b0;
@@ -153,7 +155,7 @@ module adc_controller #(
                
                scki_d    = 1'b0;
                data_valid_d = 0;
-                if (sample_en &&(phase_d != phase_q) ) begin
+                if (sample_en &&(sample_en_d != sample_en_q) ) begin
                 state_d = ST_CNV_PULSE;
                 timer_d = 0;
                 
@@ -289,7 +291,7 @@ module adc_controller #(
          ch2_q          <= 16'b0; 
          sample_count_q <= 0;
          data_valid_q   <= 0;
-         phase_q        <= 0;  
+         sample_en_q        <= 0;  
          
         end else begin
         state_q        <= state_d;
@@ -299,7 +301,7 @@ module adc_controller #(
         startup_done_q <= startup_done_d;
         sample_count_q <= sample_count_d;
         data_valid_q   <= data_valid_d;
-        phase_q        <= phase_d;
+        sample_en_q        <= sample_en_d;
        
         //shift registers
         sr0_q <= sr0_d;
@@ -325,4 +327,18 @@ module adc_controller #(
     assign sck = scki_q;
     assign data_valid = data_valid_q;
     assign sdi = sdi_q;
+    
+        initial begin
+        $display("=== Parameters ===");
+        $display("CLK_FREQ_HZ    = %0d", CLK_FREQ_HZ);
+        $display("SAMPLES_RAW    = %0d", SAMPLES_RAW);
+        $display("SAMPLE_BITS     = %0d", SAMPLE_BITS);
+        $display("SAMPLES        = %0d", SAMPLES);
+        $display("tCYC           = %0f ns", tCYC);
+        $display("WINDOW_NS      = %0f ns", WINDOW_NS);
+        $display("BUSY_TIMEOUT   = %0d ticks", BUSY_TIMEOUT);
+        $display("CNV_HIGH_TICKS = %0d ticks", CNV_HIGH_TICKS);
+        $display("QUIET_TICKS    = %0d ticks", QUIET_TICKS);
+        $display("==================");
+    end
 endmodule

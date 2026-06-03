@@ -86,7 +86,8 @@ module io_manager #(
     
     // sr driver pins
     output logic        driver_set, driver_rst,
-    output logic        sample_enable
+    output logic        sample_enable,
+    output logic        phase_o
 );
     // --- Internal Wires ---
     logic [3:0]           word_index;
@@ -105,11 +106,12 @@ module io_manager #(
     logic [GPI_WIDTH-1:0] gpio_in_reg;
     logic [GPO_WIDTH-1:0] gpio_out_reg;
     logic                 toggle;
-    logic [15:0]          field0_data; // magnetic fields data from mag_datapath
-    logic [15:0]          field1_data;
-    logic [15:0]          field2_data;
+    logic [31:0]          field0_data; // magnetic fields data from mag_datapath
+    logic [31:0]          field1_data;
+    logic [31:0]          field2_data;
     logic               mag_result_valid;
     logic               sample_en;
+    logic               phase;
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
         .clk(clk), .rst(rst),
@@ -166,7 +168,8 @@ module io_manager #(
         .field_ch1(field1_data),
         .field_ch2(field2_data),
         .result_valid(mag_result_valid),
-        .sample_enable(sample_en)
+        .sample_enable(sample_en),
+        .phase_o(phase)
     );
 
 
@@ -230,5 +233,6 @@ module io_manager #(
         end
     end
     assign adc1_shdn = 0;
-    assign sample_enable = sample_enable;
+    assign sample_enable = sample_en;
+    assign phase_o = phase;
 endmodule

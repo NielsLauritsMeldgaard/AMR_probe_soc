@@ -34,7 +34,8 @@ module mag_sensor_processor_unit (
     output logic [31:0] field_ch2,
   
     output logic        result_valid,
-    output logic        sample_enable
+    output logic        sample_enable,
+    output logic        phase_o
 );
 
 
@@ -160,4 +161,5 @@ module mag_sensor_processor_unit (
     );
     assign dac_busy = dac_busy_;
     assign sample_enable = sample_en;
+    assign phase_o = phase;
 endmodule

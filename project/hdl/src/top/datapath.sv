@@ -77,6 +77,8 @@ module datapath #(
     // XADC pins
     input logic vauxp4,
     input logic vauxn4
+  
+    
 );    
     // --- Global Control Signals ---
     logic stall;
@@ -143,6 +145,7 @@ module datapath #(
     logic dac_busy;
     
     logic sample_en;
+    logic phase;
     always_comb begin
         // --- GLOBAL STALL LOGIC ---
         //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
@@ -173,7 +176,7 @@ module datapath #(
         JA_out[7]       =       0;
         JA_out[6]       =       0;
         JA_out[5]       =       0;
-        JA_out[0]       =       adc1_sdi;
+        JA_out[0]       =       phase;
         JA_out[1]       =       adc1_cnv;
         JA_out[2]       =       adc1_sclk;
         JA_out[3]       =       adc1_sdo[2]; 
@@ -331,7 +334,8 @@ module datapath #(
         .dac_sclk(dac_sclk),
         .dac_sdin(dac_sdin),
         .dac_sync(dac_sync),
-        .dac_ldac(dac_ldac)
+        .dac_ldac(dac_ldac),
+        .phase_o(phase)
     );
     // --- 7. SLAVE 0: DATA RAM ---
     data_memory #(.MEM_WORDS(DATA_MEM_WORDS)) data_mem (

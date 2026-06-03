@@ -46,7 +46,7 @@ module mag_datapath #(
     output logic [15:0] dac_ch1,
     output logic [15:0] dac_ch2,
     output logic        dac_send
-
+    
 );
     localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  // 25.0 ns at 40MHz
     localparam int N_BITS         = 16;         // bits per conversion readout
@@ -57,13 +57,12 @@ module mag_datapath #(
     // tCYC in ns
     localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
                        * NS_PER_TICK;
-    localparam signed [15:0] ADC_OFFSET = 16'd32768;  // 2.5V midpoint in straight binary
-    localparam [15:0] ADC_MID = 16'd26843;
-    
+   // localparam [15:0] ADC_MID = 16'd26859;  // 2.5V midscale reference. from input to ADC
+    localparam [15:0] ADC_OFFSET = 16'd32768;
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = 20; //int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW = 256; //int'($floor(WINDOW_NS / tCYC));
     localparam int SHIFT_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                    $clog2(SAMPLES_RAW) :      // already power of 2
                                   $clog2(SAMPLES_RAW) - 1;   // round down
@@ -97,7 +96,7 @@ module mag_datapath #(
     logic       valid_q,  valid_d;
     logic [1:0] final_samp_d, final_samp_q;
     logic       send_q,  send_d;
-    
+    logic [32:0] scaled_ch0, scaled_ch1, scaled_ch2;
     
     always_comb begin
         // Defaults 
@@ -124,18 +123,23 @@ module mag_datapath #(
         // Accumulate incoming samples into SET or RESET accumulators
         // based on phase signal from SR driver
         if (data_valid && sample_en) begin
+            scaled_ch0 = (32'(ch0_data) * 32'd1250) >> 10;
+            scaled_ch1 = (32'(ch1_data) * 32'd1250) >> 10;
+            scaled_ch2 = (32'(ch2_data) * 32'd1250) >> 10;
             if (!data_phase) begin
                 // SET phase, accumulate positively
-                acc_set0_d = acc_set0_q + (signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_MID}));
-                acc_set1_d = acc_set1_q + (signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_MID}));
-                acc_set2_d = acc_set2_q + (signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_MID}));
+                
+                
+                acc_set0_d = acc_set0_q + (signed'({1'b0, scaled_ch0}) - signed'({1'b0, ADC_OFFSET}));
+                acc_set1_d = acc_set1_q + (signed'({1'b0, scaled_ch1}) - signed'({1'b0, ADC_OFFSET}));
+                acc_set2_d = acc_set2_q + (signed'({1'b0, scaled_ch2}) - signed'({1'b0, ADC_OFFSET}));
                  
 
             end else begin
                 // RESET phase, accumulate into separate register
-                acc_rst0_d = acc_rst0_q + (signed'({1'b0, ch0_data}) - signed'({1'b0, ADC_MID}));
-                acc_rst1_d = acc_rst1_q + (signed'({1'b0, ch1_data}) - signed'({1'b0, ADC_MID}));
-                acc_rst2_d = acc_rst2_q + (signed'({1'b0, ch2_data}) - signed'({1'b0, ADC_MID}));
+                acc_rst0_d = acc_rst0_q + (signed'({1'b0, scaled_ch0}) - signed'({1'b0, ADC_OFFSET}));
+                acc_rst1_d = acc_rst1_q + (signed'({1'b0, scaled_ch1}) - signed'({1'b0, ADC_OFFSET}));
+                acc_rst2_d = acc_rst2_q + (signed'({1'b0, scaled_ch2}) - signed'({1'b0, ADC_OFFSET}));
                 
                 
             end
@@ -160,7 +164,8 @@ module mag_datapath #(
             integ0_d = integ0_q + (error0_d >>> INTEG_SHIFT);
             integ1_d = integ1_q + (error1_d >>> INTEG_SHIFT);
             integ2_d = integ2_q + (error2_d >>> INTEG_SHIFT);
-        
+            
+            
             // Assert result valid for one cycle
             valid_d  = 1'b1;
             send_d  = 1'b1;   // trigger DAC update
@@ -228,4 +233,19 @@ module mag_datapath #(
     assign dac_ch1 = ADC_OFFSET;
     assign dac_ch2 = ADC_OFFSET;
     assign dac_send = send_q;
+    
+    
+    initial begin
+        $display("=== Parameters ===");
+        $display("CLK_FREQ_HZ    = %0d", CLK_FREQ_HZ);
+        $display("SAMPLES_RAW    = %0d", SAMPLES_RAW);
+        $display("SHIFT_BITS     = %0d", SHIFT_BITS);
+        $display("SAMPLES        = %0d", SAMPLES);
+        $display("tCYC           = %0f ns", tCYC);
+        $display("WINDOW_NS      = %0f ns", WINDOW_NS);
+        $display("BUSY_TIMEOUT   = %0d ticks", BUSY_TIMEOUT);
+        $display("CNV_HIGH_TICKS = %0d ticks", CNV_HIGH_TICKS);
+        $display("QUIET_TICKS    = %0d ticks", QUIET_TICKS);
+        $display("==================");
+    end
 endmodule

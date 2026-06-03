@@ -11,12 +11,12 @@ create_clock -add -name sys_clk_pin -period 83.33 -waveform {0 41.66} [get_ports
 
 # Clock domain crossing constraints
 # 12MHz -> 80MHz (sample_en, reset)
-set_false_path -from [get_clocks sys_clk_pin] \
-               -to   [get_clocks clk_unbuf]
+#set_false_path -from [get_clocks sys_clk_pin] \
+#               -to   [get_clocks clk_unbuf]
 
-# 80MHz -> 12MHz (result_valid, field outputs)
-set_false_path -from [get_clocks clk_unbuf] \
-               -to   [get_clocks sys_clk_pin]
+## 80MHz -> 12MHz (result_valid, field outputs)
+#set_false_path -from [get_clocks clk_unbuf] \
+#               -to   [get_clocks sys_clk_pin]
                
 ## LEDs
 set_property -dict { PACKAGE_PIN A17   IOSTANDARD LVCMOS33 } [get_ports { leds[0] }]; #IO_L12N_T1_MRCC_16 Sch=led[1]
@@ -32,10 +32,16 @@ set_property -dict { PACKAGE_PIN A18   IOSTANDARD LVCMOS33 } [get_ports { button
 set_property -dict { PACKAGE_PIN B18   IOSTANDARD LVCMOS33 } [get_ports { rst }]; #IO_L19P_T3_16 Sch=btn[1]
 
 ## Pmod Header JA
-set_property -dict { PACKAGE_PIN G17   IOSTANDARD LVCMOS33 } [get_ports { JA_in[0] }]; #IO_L5N_T0_D07_14 Sch=ja[1]
-set_property -dict { PACKAGE_PIN G19   IOSTANDARD LVCMOS33 } [get_ports { JA_in[1] }]; #IO_L4N_T0_D05_14 Sch=ja[2]
-set_property -dict { PACKAGE_PIN N18   IOSTANDARD LVCMOS33 } [get_ports { JA_in[2] }]; #IO_L9P_T1_DQS_14 Sch=ja[3]
-set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { JA_in[3] }]; #IO_L8P_T1_D11_14 Sch=ja[4]
+#set_property -dict { PACKAGE_PIN G17   IOSTANDARD LVCMOS33 } [get_ports { JA_out[4] }]; #IO_L5N_T0_D07_14 Sch=ja[1]
+#set_property -dict { PACKAGE_PIN G19   IOSTANDARD LVCMOS33 } [get_ports { JA_out[5] }]; #IO_L4N_T0_D05_14 Sch=ja[2]
+#set_property -dict { PACKAGE_PIN N18   IOSTANDARD LVCMOS33 } [get_ports { JA_out[6] }]; #IO_L9P_T1_DQS_14 Sch=ja[3]
+#set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { JA_out[7] }]; #IO_L8P_T1_D11_14 Sch=ja[4]
+
+set_property -dict { PACKAGE_PIN G17   IOSTANDARD LVCMOS33 } [get_ports { JA_out[4] }]; #IO_L5N_T0_D07_14 Sch=ja[1]
+set_property -dict { PACKAGE_PIN G19   IOSTANDARD LVCMOS33 } [get_ports { JA_out[5] }]; #IO_L4N_T0_D05_14 Sch=ja[2]
+set_property -dict { PACKAGE_PIN N18   IOSTANDARD LVCMOS33 } [get_ports { JA_out[6] }]; #IO_L9P_T1_DQS_14 Sch=ja[3]
+set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { JA_out[7] }]; #IO_L8P_T1_D11_14 Sch=ja[4]
+
 set_property -dict { PACKAGE_PIN H17   IOSTANDARD LVCMOS33 } [get_ports { JA_out[0] }]; #IO_L5P_T0_D06_14 Sch=ja[7]
 set_property -dict { PACKAGE_PIN H19   IOSTANDARD LVCMOS33 } [get_ports { JA_out[1] }]; #IO_L4P_T0_D04_14 Sch=ja[8]
 set_property -dict { PACKAGE_PIN J19   IOSTANDARD LVCMOS33 } [get_ports { JA_out[2] }]; #IO_L6N_T0_D08_VREF_14 Sch=ja[9]
