@@ -132,7 +132,7 @@ unsigned int accel_rw_register(unsigned int regAddress, unsigned int value, unsi
     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
 
     digital_write(LOW, GPO_ACCEL_CS_BIT); // set accel CS low to select the slave
-    
+
     // while(digital_read(GPI_ACCEL_INT1_BIT)) { } // Wait until accel is not busy    
 
     // Send command byte with RW, MS, and register address
@@ -150,8 +150,30 @@ unsigned int accel_rw_register(unsigned int regAddress, unsigned int value, unsi
     digital_write(HIGH, GPO_ACCEL_CS_BIT); // set accel CS high to deselect the slave
 
     return rx; // for read operations, the register value will be in the upper byte of the response
-    
+}
 
+unsigned int read_accel_axis(unsigned int axis) {
+    unsigned int reg_addr_lo = 0;
+    unsigned int reg_addr_hi = 0;
+
+    if (axis == 1) {
+        reg_addr_lo = 0x28; // OUT_X_L register address for ILS328
+        reg_addr_hi = 0x29; // OUT_X_H register address for ILS328
+    } else if (axis == 2) {
+        reg_addr_lo = 0x2A; // OUT_Y_L register address for ILS328
+        reg_addr_hi = 0x2B; // OUT_Y_H register address for ILS328
+    } else if (axis == 3) {
+        reg_addr_lo = 0x2C; // OUT_Z_L register address for ILS328
+        reg_addr_hi = 0x2D; // OUT_Z_H register address for ILS328
+    } else {
+        print_str("[ACCEL] - Invalid axis\r\n");
+        return 0; // invalid axis, return 0
+    }
+
+    unsigned int lo_byte = accel_rw_register(reg_addr_lo, 0, 1, 0); // read low byte of axis value
+    unsigned int hi_byte = accel_rw_register(reg_addr_hi, 0, 1, 0); // read high byte of axis value
+
+    return (hi_byte << 8) | lo_byte; // combine high and low byte to get full axis value
 }
 
 
@@ -211,5 +233,6 @@ void read_ADC2(unsigned int *ch0, unsigned int *ch1, unsigned int *ch2, unsigned
     digital_write(HIGH, GPO_ADC2_CS_BIT);   // deselect the slave
     digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 back to shutdown
 }
+
 
 

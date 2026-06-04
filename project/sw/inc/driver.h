@@ -10,6 +10,7 @@ void print_str(const char *str);
 void spi_configure(unsigned int clk_mode, unsigned int data_mode, unsigned int div);
 unsigned int spi_transfer(unsigned int tx);
 unsigned int accel_rw_register(unsigned int regAddress, unsigned int value, unsigned int RW, unsigned int MS);
+unsigned int read_accel_axis(unsigned int axis);
 unsigned int accel_sanity_check();
 void read_ADC2(unsigned int *ch0, unsigned int *ch1, unsigned int *ch2, unsigned int *ch3);
 

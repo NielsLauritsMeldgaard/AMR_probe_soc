@@ -37,13 +37,14 @@
 #define     GPO_JA8_BIT                      7          //     JA08
 #define     GPO_JA9_BIT                      8          //     JA09
 #define     GPO_JA10_BIT                     9          //     JA10
+#define     GPO_LORA_RESET_BIT               10         //     P17
 
 // GPIO bit definitions for GPI register
 //          Input                  ||       BIT         ||      IO       ||
 //=========================================================================
 #define     GPI_ACCEL_INT1_BIT               0          //     P13
 #define     GPI_ACCEL_INT2_BIT               1          //     P12
-#define     GPI_LORA_DIO_BIT                 2          //     P23
+#define     GPI_LORA_DIO1_BIT                 2          //     P23
 #define     GPI_LORA_BUSY_BIT                3          //     P22
 #define     GPI_ADC2_BUSY_BIT                4          //     P40
 #define     GPI_JA1_BIT                      5          //     JA01
