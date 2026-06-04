@@ -186,11 +186,11 @@ module adc_controller #(
                     timer_d = 0;
                     
                     bit_d   = 5'd15;
-                end else if (timer_q >= BUSY_TIMEOUT - 1) begin
+                //end else if (timer_q >= BUSY_TIMEOUT - 1) begin
                     // Hardware fault - BUSY never fell
                     // Return to idle and wait for next window
-                    state_d = ST_IDLE;
-                    timer_d = 0;
+                  //  state_d = ST_IDLE;
+                  //  timer_d = 0;
                 end else begin
                     state_d = ST_WAIT_BUSY;
                     
