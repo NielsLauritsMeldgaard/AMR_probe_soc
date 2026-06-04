@@ -143,9 +143,9 @@ module datapath #(
     
 
     logic dac_busy;
-    
     logic sample_en;
     logic phase;
+    logic adc_sdin;
     always_comb begin
         // --- GLOBAL STALL LOGIC ---
         //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);
@@ -175,8 +175,8 @@ module datapath #(
         lora_rst        =       gpio_out[10];
         JA_out[7]       =       0;
         JA_out[6]       =       0;
-        JA_out[5]       =       0;
-        JA_out[0]       =       phase;
+        JA_out[5]       =       adc1_busy;
+        JA_out[0]       =       adc_sdin;
         JA_out[1]       =       adc1_cnv;
         JA_out[2]       =       adc1_sclk;
         JA_out[3]       =       adc1_sdo[2]; 
@@ -325,7 +325,7 @@ module datapath #(
         .adc1_cnv(adc1_cnv),
         .adc1_sclk(adc1_sclk),
         .adc1_busy(adc1_busy),
-        .adc1_sdi(adc1_sdi),
+        .adc1_sdi(adc_sdin),
         .adc1_sdo(adc1_sdo),
         .adc1_shdn(adc1_shdn),
         .adc1_cs(adc1_cs),
@@ -371,5 +371,5 @@ module datapath #(
         .branch_id(branch_id), .aluFwdSrc(aluFwdSrc),
         .fwd_mem_data(fwd_mem_data)
     );
-    
+    assign adc1_sdi = adc_sdin;
 endmodule
