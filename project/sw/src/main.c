@@ -49,9 +49,11 @@ int main(void) {
     digital_write(HIGH, GPO_LORA_CS_BIT);
     digital_write(HIGH, GPO_ADC2_CS_BIT);
     digital_write(HIGH, GPO_LORA_RF_SW_BIT);    // Set HIGH and let DIO2 control RF switch for TX/RX
-    digital_write(HIGH, GPO_ADC2_SHDN_BIT);     // set ADC2 to shutdown
+    digital_write(LOW, GPO_ADC2_SHDN_BIT);      // set ADC2 to shutdown
     digital_write(LOW, GPO_ADC2_CNV_BIT);       // set ADC2 convert bit to 0
-    
+    //digital_write(HIGH, GPO_DAC_SET_BIT);       // set DAC output
+    set_leds(0);
+
     // configure the SPI controller
     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
 
@@ -77,8 +79,8 @@ int main(void) {
             print_str("[LOG] FATAL: Accelerometer not found!\r\n");
         }
     }
-    // Register 0x20 (CTRL_REG1) = 0x27 (Normal mode, 50Hz ODR, XYZ enabled)
-    accel_rw_register(0x20, 0x27, 0, 0); 
+    // Register 0x20 (CTRL_REG1)
+    accel_rw_register(CTRL_REG1_ADDR, CTRL_REG1_VALUE, LOW, LOW); 
     print_str("[LOG] Accelerometer online. System Ready.\r\n");
 
 
@@ -90,20 +92,29 @@ int main(void) {
     unsigned int lora_rx_payload, lora_rx_len;
     unsigned int last_error_state = 0;
     unsigned int led1 = 0;
+    unsigned int btn_state = 0;
+    unsigned int btn_state_prev = 0;
+    unsigned int dac_off = 0;
 
     while (1) {
-        // 1. Update Sensors (Fresh data for every loop)
+        btn_state = read_botton();
+        if (btn_state == 1 && btn_state_prev == 0) {
+            dac_off = !dac_off; // Toggle DAC state
+            if (!dac_off) {
+                set_leds(3); // Set both LEDs on to indicate DAC is active (example)
+            } else {
+                set_leds(0); // Set both LEDs off to indicate DAC is off
+            }
+        }
+        btn_state_prev = btn_state;
+
+        // Update Sensors (Fresh data for every loop)
         vbat = read_xadc();
         h1 = read_hmc_axis(1); h2 = read_hmc_axis(2); h3 = read_hmc_axis(3);
         read_ADC2(&pd1, &pd2, &p3, &pd4);
+        ax = read_accel_axis(1); ay = read_accel_axis(2); az = read_accel_axis(3);
 
-        ax = read_accel_axis(1); 
-        
-        ay = read_accel_axis(2); 
-            
-        az = read_accel_axis(3);
-
-        // 2. Handle LoRa Inbound (Async)
+        // Handle LoRa Inbound (Async)
         lora_rx_len = sx1262_receive_async(&lora_rx_payload);
         if (lora_rx_len > 0) {
             unsigned int opcode = (lora_rx_payload >> 24) & 0xFF;
@@ -139,12 +150,13 @@ int main(void) {
             }
         }
 
-        // 3. Periodic Logging
+        // Periodic Logging
         if (read_timer() > 100000) {
             set_counter();
-
-            led1 = ~led1 & 0x01;
-            set_leds(led1); // Heartbeat led1 toggle every run
+            
+            // DEBUG
+            //led1 = ~led1 & 0x01;
+            //set_leds(led1); // Heartbeat led1 toggle every run
             
             // Output fresh CSV row for PC processing
             print_csv(vbat, h1, h2, h3, ax, ay, az, pd1, pd2, p3, pd4);

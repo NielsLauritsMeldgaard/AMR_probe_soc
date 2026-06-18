@@ -201,7 +201,7 @@ void read_ADC2(unsigned int *ch0, unsigned int *ch1, unsigned int *ch2, unsigned
     unsigned int adc2_rx_lo = 0;
 
     digital_write(LOW, GPO_ADC2_CS_BIT);        // set ADC2 CS low to select the slave
-    digital_write(LOW, GPO_ADC2_SHDN_BIT);      // wake up ADC2
+    // digital_write(LOW, GPO_ADC2_SHDN_BIT);   // wake up ADC2
     while( digital_read(GPI_ADC2_BUSY_BIT) );   // wait while ADC2 starting up
 
     // read 2 samples from ADC2. First it needs to be programmed with the softcode and then it can be read. 
@@ -231,7 +231,8 @@ void read_ADC2(unsigned int *ch0, unsigned int *ch1, unsigned int *ch2, unsigned
     }
 
     digital_write(HIGH, GPO_ADC2_CS_BIT);   // deselect the slave
-    digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 back to shutdown
+    
+    // digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 back to shutdown
 }
 
 
