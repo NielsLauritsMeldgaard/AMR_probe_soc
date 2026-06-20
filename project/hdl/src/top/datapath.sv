@@ -146,6 +146,7 @@ module datapath #(
     logic sample_en;
     logic phase;
     logic adc_sdin;
+    logic dac_off;
     always_comb begin
         // --- GLOBAL STALL LOGIC ---
         //assign stall = (iwb_stb && !iwb_ack) || (dwb_stb && !dwb_ack);

@@ -19,7 +19,7 @@ module mag_datapath #(
     parameter int TCONV          = 550,    // busy high: 500xN ns
     parameter int TQUIET         = 20,   // Quiet time: 20ns 
     parameter int WINDOW_TIME_US = 1478,
-    parameter int INTEG_SHIFT   = 9    // integrator gain: error >>= INTEG_SHIF
+    parameter int INTEG_SHIFT   = 3    // integrator gain: error >>= INTEG_SHIF
 )(
     input  logic        clk,
     input  logic        rst,
@@ -31,7 +31,7 @@ module mag_datapath #(
     input  logic        data_valid,     // One cycle strobe per conversion
     input  logic        data_phase,     // 0 = SET, 1 = RESET
     input  logic        final_sample,
-
+    input  logic        dac_off,        // turn off dac
     // From SR driver
     input  logic        sample_en,      // High during sampling window
 
@@ -48,7 +48,7 @@ module mag_datapath #(
     output logic        dac_send
     
 );
-    localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  // 25.0 ns at 40MHz
+    localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  //12.5 ns at 80MHz
     localparam int N_BITS         = 16;         // bits per conversion readout
     localparam int CNV_HIGH_TICKS = int'($ceil(TCNVH         / NS_PER_TICK));  // ceil(40/25)  = 2
     localparam int BUSY_TIMEOUT   = int'($ceil((TCONV * N_CHANNELS) / NS_PER_TICK));  // ceil(1500/25) = 60
@@ -62,16 +62,14 @@ module mag_datapath #(
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = 256; //int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW =  256;  //int'($floor(WINDOW_NS / tCYC));
     localparam int SHIFT_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                    $clog2(SAMPLES_RAW) :      // already power of 2
                                   $clog2(SAMPLES_RAW) - 1;   // round down
    localparam int SAMPLES     = 1 << SHIFT_BITS; 
      
-     // integrator clamp: ±half DAC range so midscale ± integ never wraps
-    localparam  [ACC_WIDTH-1:0] INT_MAX =  16'd65535;
-    localparam  [ACC_WIDTH-1:0] INT_MIN = 16'd0;
-
+   localparam logic signed [ACC_WIDTH-1:0] INT_MAX =  32'sd32768;  // -> dac_val = 0
+   localparam logic signed [ACC_WIDTH-1:0] INT_MIN = -32'sd32767;  // -> dac_val = 65535
 
 
     // SET and RESET accumulators for each channel
@@ -92,11 +90,14 @@ module mag_datapath #(
     logic signed [ACC_WIDTH-1:0] integ0_q, integ0_d;
     logic signed [ACC_WIDTH-1:0] integ1_q, integ1_d;
     logic signed [ACC_WIDTH-1:0] integ2_q, integ2_d;
+    logic signed [ACC_WIDTH-1:0] integ0_sum, integ1_sum, integ2_sum;
     // Output registers
     logic       valid_q,  valid_d;
     logic [1:0] final_samp_d, final_samp_q;
     logic       send_q,  send_d;
     logic [32:0] scaled_ch0, scaled_ch1, scaled_ch2;
+
+    logic [31:0] dac_val0,dac_val1,dac_val2;
     
     always_comb begin
         // Defaults 
@@ -116,7 +117,9 @@ module mag_datapath #(
         send_d       = 1'b0;
         final_samp_d = final_samp_q;
         
-  
+        
+        
+ 
 
 
 
@@ -155,16 +158,22 @@ module mag_datapath #(
             // Subtract accumulators - offset cancels, field doubles
             // synchronous demodulation: error = (SET - RESET) >> SHIFT_BITS
             // offset cancels, field signal doubles
-            error0_d = ((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1;
-            
-            error1_d = ((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1;
-            error2_d = ((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1;
+            error0_d = (((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1)- 32'd2232;  // added values are a hardware magnetic error offset that must be compensated in logic
+            error1_d = (((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1)- 32'd1250;  // added values are a hardware magnetic error offset that must be compensated in logic
+            error2_d = (((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1)- 32'd1039;  // added values are a hardware magnetic error offset that must be compensated in logic
             
     
-            integ0_d = integ0_q + (error0_d >>> INTEG_SHIFT);
-            integ1_d = integ1_q + (error1_d >>> INTEG_SHIFT);
-            integ2_d = integ2_q + (error2_d >>> INTEG_SHIFT);
+            integ0_sum = integ0_q + (error0_d >>> INTEG_SHIFT);
+            integ1_sum = integ1_q + (error1_d >>> INTEG_SHIFT);
+            integ2_sum = integ2_q + (error2_d >>> INTEG_SHIFT);
             
+            integ0_d = (integ0_sum > INT_MAX) ? INT_MAX :
+                       (integ0_sum < INT_MIN) ? INT_MIN : integ0_sum;
+            integ1_d = (integ1_sum > INT_MAX) ? INT_MAX :
+                       (integ1_sum < INT_MIN) ? INT_MIN : integ1_sum;
+            integ2_d = (integ2_sum > INT_MAX) ? INT_MAX :
+                       (integ2_sum < INT_MIN) ? INT_MIN : integ2_sum;
+                        
             
             // Assert result valid for one cycle
             valid_d  = 1'b1;
@@ -177,6 +186,15 @@ module mag_datapath #(
             acc_rst1_d   = '0;
             acc_rst2_d   = '0;
             final_samp_d = '0;
+        end
+        if (dac_off) begin
+            dac_val0 = 32'd32768;
+            dac_val1 = 32'd32768;
+            dac_val2 = 32'd32768;
+        end else begin
+            dac_val0 = 32'd32768 - integ0_q;
+            dac_val1 = 32'd32768 - integ1_q;
+            dac_val2 = 32'd32768 - integ2_q;
         end
     end
 
@@ -198,22 +216,24 @@ module mag_datapath #(
             valid_q      <= 1'b0;
             send_q       <= 1'b0;
             final_samp_q <= '0;
+ 
         end else begin
-            acc_set0_q   <= acc_set0_d; 
-            acc_set1_q   <= acc_set1_d; 
-            acc_set2_q   <= acc_set2_d;
-            acc_rst0_q   <= acc_rst0_d; 
-            acc_rst1_q   <= acc_rst1_d; 
-            acc_rst2_q   <= acc_rst2_d;
-            error0_q     <= error0_d;   
-            error1_q     <= error1_d;   
-            error2_q     <= error2_d;
-            integ0_q     <= integ0_d;   
-            integ1_q     <= integ1_d;   
-            integ2_q     <= integ2_d;
-            valid_q      <= valid_d;
-            send_q       <= send_d;
-            final_samp_q <= final_samp_d;
+            acc_set0_q    <= acc_set0_d; 
+            acc_set1_q    <= acc_set1_d; 
+            acc_set2_q    <= acc_set2_d;
+            acc_rst0_q    <= acc_rst0_d; 
+            acc_rst1_q    <= acc_rst1_d; 
+            acc_rst2_q    <= acc_rst2_d;
+            error0_q      <= error0_d;   
+            error1_q      <= error1_d;   
+            error2_q      <= error2_d;
+            integ0_q      <= integ0_d;   
+            integ1_q      <= integ1_d;   
+            integ2_q      <= integ2_d;
+            valid_q       <= valid_d;
+            send_q        <= send_d;
+            final_samp_q  <= final_samp_d;
+
         end
     end
     // -------------------------------------------------------------------------
@@ -229,9 +249,18 @@ module mag_datapath #(
     // integ=0 → DAC=32768 → 2.5V → zero feedback current → null
     // integ>0 → DAC>midscale → positive coil current cancels positive field
     // integ<0 → DAC<midscale → negative coil current cancels negative field
-    assign dac_ch0 = ADC_OFFSET;
-    assign dac_ch1 = ADC_OFFSET;
-    assign dac_ch2 = ADC_OFFSET;
+    
+    assign dac_ch0 = (dac_val0 > 32'sd65535) ? 16'd65535 :
+                     (dac_val0 < 32'sd0)      ? 16'd0     :
+                                                dac_val0[15:0];
+ 
+    assign dac_ch1 = (dac_val1 > 32'sd65535) ? 16'd65535 :
+                     (dac_val1 < 32'sd0)      ? 16'd0     :
+                                                 dac_val1[15:0];
+ 
+    assign dac_ch2 = (dac_val2 > 32'sd65535) ? 16'd65535 :
+                     (dac_val2 < 32'sd0)      ? 16'd0     :
+                                                dac_val2[15:0];
     assign dac_send = send_q;
     
     

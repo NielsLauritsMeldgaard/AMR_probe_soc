@@ -19,7 +19,7 @@ module mag_sensor_processor_unit (
     input  logic        adc_sdo0,           // Channel 0 data (HMC axis 1)
     input  logic        adc_sdo1,           // Channel 1 data (HMC axis 2)
     input  logic        adc_sdo2,           // Channel 2 data (HMC axis 3)
-    
+    input  logic        dac_off,
     // AD5686R DAC interface
 
     output logic        dac_busy, 
@@ -119,7 +119,7 @@ module mag_sensor_processor_unit (
         .TCONV          (550),
         .TQUIET         (20),
         .WINDOW_TIME_US (1478),
-        .INTEG_SHIFT    (9)
+        .INTEG_SHIFT    (3)
     ) mag_data_inst (
         .clk          (clk_12mhz),
         .rst          (rst),
@@ -139,7 +139,8 @@ module mag_sensor_processor_unit (
         .dac_ch0(dac_ch0),
         .dac_ch1(dac_ch1),
         .dac_ch2(dac_ch2),
-        .dac_send(dac_send)
+        .dac_send(dac_send),
+        .dac_off(dac_off)
     );
     
     dac_controller dac_ctrl_inst(
