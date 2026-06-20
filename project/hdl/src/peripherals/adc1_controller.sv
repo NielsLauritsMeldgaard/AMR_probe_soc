@@ -16,7 +16,7 @@
 
 
 module adc_controller #(
-    parameter int CLK_FREQ_HZ    = 12_000_000,  // clk freq 40MHz
+    parameter int CLK_FREQ_HZ    = 12_000_000,  // clk freq 0MHz
     parameter int TCNVH          = 40,    // conversion time 40ns
     parameter int TCONV          = 550,    // busy high: 500xN ns
     parameter int N_CHANNELS     = 3,    // number of channels: 3
@@ -61,7 +61,7 @@ module adc_controller #(
 // Window time in ns
     localparam real WINDOW_NS      = WINDOW_TIME_US * 1000.0;
     // Max samples that fit in the window
-    localparam int SAMPLES_RAW = 256; //int'($floor(WINDOW_NS / tCYC));
+    localparam int SAMPLES_RAW =  256;  //int'($floor(WINDOW_NS / tCYC));
     localparam int SAMPLE_BITS  = (SAMPLES_RAW == (1 << $clog2(SAMPLES_RAW))) ?
                                    $clog2(SAMPLES_RAW) :      // already power of 2
                                   $clog2(SAMPLES_RAW) - 1;   // round down
@@ -244,7 +244,7 @@ module adc_controller #(
                 // Softspan now loaded, discard this result
                 data_valid_d = 0;
                 scki_d    = 1'b0;
-                startup_done_d = 1'b1;  // flag: from now on ST_DONE instead
+                startup_done_d = 1'b1;  // flag: softspan word sent porperly to adc
                 if (sample_en) begin
                     state_d = ST_CNV_PULSE;
                 end else begin
@@ -256,7 +256,7 @@ module adc_controller #(
                 data_valid_d = 1;
                 scki_d    = 1'b0;
                 
-                ch0_d   = sr0_q[15:0];  // or sr0_q[15:0] if 16-bit
+                ch0_d   = sr0_q[15:0];  
                 ch1_d   = sr1_q[15:0];
                 ch2_d   = sr2_q[15:0];
              
