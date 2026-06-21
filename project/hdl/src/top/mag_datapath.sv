@@ -19,7 +19,7 @@ module mag_datapath #(
     parameter int TCONV          = 550,    // busy high: 500xN ns
     parameter int TQUIET         = 20,   // Quiet time: 20ns 
     parameter int WINDOW_TIME_US = 1478,
-    parameter int INTEG_SHIFT   =  9   // integrator gain: error >>= INTEG_SHIF
+    parameter int INTEG_SHIFT   =  8   // integrator gain: error >>= INTEG_SHIF
 )(
     input  logic        clk,
     input  logic        rst,
