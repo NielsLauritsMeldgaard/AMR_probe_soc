@@ -174,14 +174,14 @@ module datapath #(
         //DEBUG DAC SDIN OUT
         //JA_out          =       gpio_out[9:6];
         lora_rst        =       gpio_out[10];
-        JA_out[7]       =       0;
-        JA_out[6]       =       0;
-        JA_out[5]       =       adc1_busy;
-        JA_out[0]       =       adc_sdin;
-        JA_out[1]       =       adc1_cnv;
-        JA_out[2]       =       adc1_sclk;
-        JA_out[3]       =       adc1_sdo[2]; 
-        JA_out[4]       =       sample_en;
+        JA_out[0]       =       driver_set;    //JA1
+        JA_out[1]       =       driver_rst;    //JA2
+        JA_out[2]       =       adc1_busy;     //JA3
+        JA_out[3]       =       adc_sdin;       //JA4
+        JA_out[4]       =       adc1_cnv;       // JA7
+        JA_out[5]       =       adc1_sclk;      // JA8
+        JA_out[6]       =       adc1_sdo[2];    // JA9 
+        JA_out[7]       =       sample_en;      // JA10
         // Connect GPI physical pins to IO manager
         gpio_in[0]      =       accel_int1;
         gpio_in[1]      =       accel_int2;

@@ -270,6 +270,8 @@ module adc_controller #(
                     
                 end          
             end 
+
+                            
       endcase 
     end
 
@@ -327,18 +329,6 @@ module adc_controller #(
     assign sck = scki_q;
     assign data_valid = data_valid_q;
     assign sdi = sdi_q;
-    
-        initial begin
-        $display("=== Parameters ===");
-        $display("CLK_FREQ_HZ    = %0d", CLK_FREQ_HZ);
-        $display("SAMPLES_RAW    = %0d", SAMPLES_RAW);
-        $display("SAMPLE_BITS     = %0d", SAMPLE_BITS);
-        $display("SAMPLES        = %0d", SAMPLES);
-        $display("tCYC           = %0f ns", tCYC);
-        $display("WINDOW_NS      = %0f ns", WINDOW_NS);
-        $display("BUSY_TIMEOUT   = %0d ticks", BUSY_TIMEOUT);
-        $display("CNV_HIGH_TICKS = %0d ticks", CNV_HIGH_TICKS);
-        $display("QUIET_TICKS    = %0d ticks", QUIET_TICKS);
-        $display("==================");
-    end
+
+
 endmodule
