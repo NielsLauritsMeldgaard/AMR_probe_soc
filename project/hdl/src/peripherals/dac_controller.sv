@@ -59,8 +59,6 @@ module dac_controller(
                 // registers
             shift_reg_d = shift_reg_q;
             state_d     = state_q;
-
-            
                 // counters
             bit_cnt_d = bit_cnt_q; //
             frame_cnt_d = frame_cnt_q;
@@ -70,6 +68,8 @@ module dac_controller(
             sync_n = 1;
             sdin   = 0;
             busy   = 0;
+ 
+            
             case (state_q)
                
             ST_IDLE: begin
@@ -138,7 +138,8 @@ module dac_controller(
                     busy  = 0;
                     state_d = ST_IDLE;   // next cycle IDLE drives ldac_n back to 1
                 end
-                        
+                
+                 
                    
                     
             endcase

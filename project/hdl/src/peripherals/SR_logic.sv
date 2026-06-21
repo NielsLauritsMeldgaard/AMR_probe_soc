@@ -12,8 +12,6 @@ module sr_driver_gen #(
     input  logic clk,
     input  logic rst,
     input logic  start,
-
-    
     output logic set_sig,
     output logic reset_sig,
 

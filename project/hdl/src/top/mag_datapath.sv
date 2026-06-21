@@ -19,7 +19,7 @@ module mag_datapath #(
     parameter int TCONV          = 550,    // busy high: 500xN ns
     parameter int TQUIET         = 20,   // Quiet time: 20ns 
     parameter int WINDOW_TIME_US = 1478,
-    parameter int INTEG_SHIFT   = 3    // integrator gain: error >>= INTEG_SHIF
+    parameter int INTEG_SHIFT   =  8   // integrator gain: error >>= INTEG_SHIF
 )(
     input  logic        clk,
     input  logic        rst,
@@ -158,22 +158,25 @@ module mag_datapath #(
             // Subtract accumulators - offset cancels, field doubles
             // synchronous demodulation: error = (SET - RESET) >> SHIFT_BITS
             // offset cancels, field signal doubles
+            
+            // u[n] = u[n-1] + b0*e[n] + b1*e[n-1]
+            
             error0_d = (((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1)- 32'd2232;  // added values are a hardware magnetic error offset that must be compensated in logic
             error1_d = (((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1)- 32'd1250;  // added values are a hardware magnetic error offset that must be compensated in logic
             error2_d = (((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1)- 32'd1039;  // added values are a hardware magnetic error offset that must be compensated in logic
             
     
-            integ0_sum = integ0_q + (error0_d >>> INTEG_SHIFT);
-            integ1_sum = integ1_q + (error1_d >>> INTEG_SHIFT);
-            integ2_sum = integ2_q + (error2_d >>> INTEG_SHIFT);
-            
-            integ0_d = (integ0_sum > INT_MAX) ? INT_MAX :
-                       (integ0_sum < INT_MIN) ? INT_MIN : integ0_sum;
-            integ1_d = (integ1_sum > INT_MAX) ? INT_MAX :
-                       (integ1_sum < INT_MIN) ? INT_MIN : integ1_sum;
-            integ2_d = (integ2_sum > INT_MAX) ? INT_MAX :
-                       (integ2_sum < INT_MIN) ? INT_MIN : integ2_sum;
-                        
+            integ0_sum = integ0_q + (error0_d >>> INTEG_SHIFT);   
+            integ0_d   = integ0_sum;  //(integ0_sum > INT_MAX) ? INT_MAX :
+                          //(integ0_sum < INT_MIN) ? INT_MIN : integ0_sum;
+                            
+            integ1_sum = integ1_q + (error1_d >>> INTEG_SHIFT);   
+            integ1_d   = integ1_sum; //(integ1_sum > INT_MAX) ? INT_MAX :
+                         //(integ1_sum < INT_MIN) ? INT_MIN : integ1_sum;
+                         
+            integ2_sum = integ2_q + (error2_d >>> INTEG_SHIFT);   
+            integ2_d   = integ2_sum; //(integ2_sum > INT_MAX) ? INT_MAX :
+                         //(integ2_sum < INT_MIN) ? INT_MIN : integ2_sum;
             
             // Assert result valid for one cycle
             valid_d  = 1'b1;
@@ -240,9 +243,9 @@ module mag_datapath #(
     // Output assignments
     // -------------------------------------------------------------------------
     // field outputs: integrator state, signed, centred at 0
-    assign field_ch0   = error0_q;
-    assign field_ch1   = error1_q;
-    assign field_ch2   = error2_q;
+    assign field_ch0   = dac_val0[15:0];
+    assign field_ch1   = dac_val1[15:0];
+    assign field_ch2   = dac_val2[15:0];
     assign result_valid = valid_q;
 
     // DAC outputs: integrator state offset by midscale
@@ -250,17 +253,11 @@ module mag_datapath #(
     // integ>0 → DAC>midscale → positive coil current cancels positive field
     // integ<0 → DAC<midscale → negative coil current cancels negative field
     
-    assign dac_ch0 = (dac_val0 > 32'sd65535) ? 16'd65535 :
-                     (dac_val0 < 32'sd0)      ? 16'd0     :
-                                                dac_val0[15:0];
+    assign dac_ch0 = dac_val0[15:0];
  
-    assign dac_ch1 = (dac_val1 > 32'sd65535) ? 16'd65535 :
-                     (dac_val1 < 32'sd0)      ? 16'd0     :
-                                                 dac_val1[15:0];
+    assign dac_ch1 =  dac_val1[15:0];
  
-    assign dac_ch2 = (dac_val2 > 32'sd65535) ? 16'd65535 :
-                     (dac_val2 < 32'sd0)      ? 16'd0     :
-                                                dac_val2[15:0];
+    assign dac_ch2 = dac_val2[15:0];
     assign dac_send = send_q;
     
     

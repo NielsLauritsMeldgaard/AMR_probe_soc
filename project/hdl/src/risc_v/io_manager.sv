@@ -113,6 +113,7 @@ module io_manager #(
     logic               sample_en;
     logic               phase;
     logic               dac_off;
+
     // --- 3. SUB-MODULE INSTANTIATIONS ---
     uart_controller uart_unit (
         .clk(clk), .rst(rst),
@@ -192,6 +193,7 @@ module io_manager #(
         //timer_set = 0;
         gpio_out = gpio_out_reg;
         dac_off = leds[1]; 
+
 
         case (word_index) 
             4'b0000: wb_dat_o_next = {30'h0, leds};                      // Addr 0x0
