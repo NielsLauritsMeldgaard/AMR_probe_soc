@@ -19,7 +19,7 @@ module mag_datapath #(
     parameter int TCONV          = 550,    // busy high: 500xN ns
     parameter int TQUIET         = 20,   // Quiet time: 20ns 
     parameter int WINDOW_TIME_US = 1478,
-    parameter int INTEG_SHIFT   =  8   // integrator gain: error >>= INTEG_SHIF
+    parameter int INTEG_SHIFT   =  8  // integrator gain: error >>= INTEG_SHIF
 )(
     input  logic        clk,
     input  logic        rst,
@@ -243,9 +243,9 @@ module mag_datapath #(
     // Output assignments
     // -------------------------------------------------------------------------
     // field outputs: integrator state, signed, centred at 0
-    assign field_ch0   = dac_val0[15:0];
-    assign field_ch1   = dac_val1[15:0];
-    assign field_ch2   = dac_val2[15:0];
+    assign field_ch0   = error0_q;
+    assign field_ch1   = error1_q;
+    assign field_ch2   = error2_q;
     assign result_valid = valid_q;
 
     // DAC outputs: integrator state offset by midscale

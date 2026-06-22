@@ -118,8 +118,8 @@ module mag_sensor_processor_unit (
         .TCNVH          (40),
         .TCONV          (550),
         .TQUIET         (20),
-        .WINDOW_TIME_US (1478),
-        .INTEG_SHIFT    (8)
+        .WINDOW_TIME_US (1478)
+        
     ) mag_data_inst (
         .clk          (clk_12mhz),
         .rst          (rst),
