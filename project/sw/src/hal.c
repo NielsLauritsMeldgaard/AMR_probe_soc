@@ -11,6 +11,11 @@ void delay_cycles (unsigned int cycles)
     }   
 }
 
+int read_botton() {
+    volatile unsigned int *btn = (volatile unsigned int *)BUTTONS_ADDR;
+    return *btn;
+}
+
 /**
  * Set the LEDs to a given value.
  * For the CMOD A7 there is only 2 LEDs.

@@ -38,6 +38,7 @@
 #define     GPO_JA9_BIT                      8          //     JA09
 #define     GPO_JA10_BIT                     9          //     JA10
 #define     GPO_LORA_RESET_BIT               10         //     P17
+#define     GPO_DAC_SET_BIT                  10         //     P46
 
 // GPIO bit definitions for GPI register
 //          Input                  ||       BIT         ||      IO       ||
@@ -65,5 +66,6 @@ void digital_write(unsigned int value, unsigned int IO_BIT);
 unsigned int digital_read(unsigned int IO_BIT);
 void set_hmc();
 unsigned int read_hmc_axis(unsigned int axis);
+int read_botton();
 
 #endif // HAL_H
