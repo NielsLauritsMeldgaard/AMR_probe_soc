@@ -1,41 +1,60 @@
-# Quick Start Guide: Probe
+# User manual
 
-This guide covers the process of uploading firmware to the RISC-V CPU on the FPGA and monitoring the telemetry output.
-
-## Prerequisites
-* **Python 3.x** installed (required for the upload script).
-* **PuTTY** or a similar Serial Terminal.
-* **VS Code** (Optional, for automated tasks).
+This guide describes how to deploy the Probe and Ground Station units.
 
 ---
 
-## 1. Uploading the Firmware
+## Quick Start: Probe
 
-1. **Power:** Plug in the 18650 batteries (ensure correct polarity) and attach the battery JST cable to the main PCB.
-2. **Bootloader Mode:** Connect the FPGA to your PC via USB. Press and hold the **Restart** button on the FPGA to enter bootloader mode. 
-   * *Note: The onboard LED will turn off while the button is pressed, indicating it is ready for upload.*
+This process involves uploading firmware to the RISC-V CPU on the FPGA and monitoring raw telemetry.
+
+### 1. Uploading the Firmware
+1. **Power:** Plug in the 18650 batteries (ensure correct polarity) and attach the JST cable to the PCB.
+2. **Bootloader Mode:** Connect the FPGA to your PC via USB. Press and hold the **Restart** button (the onboard LED will turn off).
 3. **Configure COM Port:**
-   * Open **Device Manager** on Windows and identify the COM port assigned to the FPGA.
-   * Navigate to `/project/scripts/` in the repository.
-   * Right-click `upload_program.bat` and select **Edit**.
-   * Change the COM port number to match your device (e.g., `COM3`), then save and close the file.
-4. **Execute Upload:**
-   * Run `upload_program.bat` by double-clicking it.
-   * **Alternative (VS Code):** Open the project folder in VS Code. Press `Ctrl+Shift+B` (or go to Terminal -> Run Task) and select the user-defined task **"UPLOAD TO FPGA"**.
+   * Open **Device Manager** to find the FPGA's COM port.
+   * Navigate to `project/scripts/` and right-click `upload_program.bat` -> **Edit**.
+   * Update the COM port number, then save and close.
+4. **Execute:**
+   * Double-click `upload_program.bat`.
+   * **Alternative (VS Code):** Open the folder in VS Code and run the task **"UPLOAD TO FPGA"** (`Ctrl+Shift+B`).
+
+### 2. Usage & Monitoring
+Open **PuTTY** at **115200 baud**. The terminal will stream CSV-formatted data. Use this header for logging:
+`BAT, HMC1, HMC2, HMC3, ACCEL1, ACCEL2, ACCEL3, PD1, PD2, PD3, PD4, dac_off, timer`
+
+* **Format:** HMC/Accel are 16-bit Hex (signed 2's complement). Photodiodes are 16-bit unsigned integers.
 
 ---
 
-## 2. Usage & Monitoring
+## Quick Start: Ground Station
 
-After a successful upload, the probe begins its control loop. You can monitor the telemetry via UART.
+The Ground Station acts as the master controller, polling the probe and displaying processed data.
 
-1. **Open PuTTY:** Connect to the identified COM port.
-2. **Settings:** Set the speed to **115200 baud**.
-3. **Output:** The terminal will stream data in a CSV-ready format. To process the data, use the following header:
+### 1. Powering On
+* **Battery:** Flip the physical power switch on the unit to connect the internal battery.
+* **USB:** Alternatively, connect a **USB-C** cable to power the unit and enable serial debugging.
+* *Note: The firmware is stored in non-volatile flash and will execute automatically upon power-up.*
 
-```csv
-BAT, HMC1, HMC2, HMC3, ACCEL1, ACCEL2, ACCEL3, PD1, PD2, PD3, PD4, dac_off, timer
-```
+### 2. Monitoring & Interaction
+* **OLED Display:** Use the physical push-button to cycle through different telemetry menus (Radio Status, IMU data, Sun Position, etc.).
+* **Serial Terminal:** Connect via **PuTTY** (115200 baud) to view formatted system logs and debug information sent from the ESP32.
+
+### 3. Programming & Updates
+To modify the Ground Station software:
+1. Open the project in the **Arduino IDE**.
+2. **Board Selection:** Select `ESP32C3 Dev Module`.
+3. **Dependencies:** Ensure the following libraries are installed via the Library Manager:
+   * **RadioLib** (for SX1262 control)
+   * **Adafruit SSD1306** & **Adafruit GFX** (for the OLED)
+4. Click **Upload** to flash the new firmware via USB-C.
+
+---
+
+### System Requirements
+* **Python 3.x** (for Probe upload scripts).
+* **Arduino IDE** (for Ground Station development).
+* **Serial Terminal** (PuTTY or Arduino Serial Monitor).
 
 ### Data Formats
 * **HMC & Accelerometer:** 16-bit Hexadecimal (signed 2's complement).
