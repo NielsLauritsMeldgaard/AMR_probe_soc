@@ -25,9 +25,9 @@ The probe also reports startup messages such as SX1262 online and accelerometer 
 1. Connect the battery pack and the JST cable to the probe board.
 2. Connect the FPGA board to the PC over USB.
 3. Make sure the board is powered before uploading firmware.
+4. IMPORTANT: Always press BTN1 for 1s to enter bootloader mode before uploading firmware.
 
 ## Upload firmware
-
 1. Build the firmware first using the instructions in [build_and_vivado_guide.md](build_and_vivado_guide.md).
 2. Open [project/scripts/upload_program.bat](../project/scripts/upload_program.bat).
 3. Set the COM port in the script. Example:
