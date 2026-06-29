@@ -1,66 +1,21 @@
-# User manual
+# AMR Probe SoC
 
-This guide describes how to deploy the Probe and Ground Station units.
+This repository contains the full AMR probe system: the FPGA-based probe hardware, the RISC-V firmware, the ground station firmware, and the Vivado project.
 
----
+## Repository layout
 
-## Quick Start: Probe
+- [project/hdl](project/hdl): HDL sources, RTL, IP, and testbenches
+- [project/sw](project/sw): RISC-V firmware source, linker script, and CMake build
+- [ground_station](ground_station): ESP32 ground station firmware
+- [vivado](vivado): Vivado project files and generated build outputs
+- [docs](docs): standalone user guides for the probe, ground station, and build/Vivado flow
 
-This process involves uploading firmware to the RISC-V CPU on the FPGA and monitoring raw telemetry.
+## Start here
 
-### 1. Uploading the Firmware
-1. **Power:** Plug in the 18650 batteries (ensure correct polarity) and attach the JST cable to the PCB.
-2. **Bootloader Mode:** Connect the FPGA to your PC via USB. Press and hold the **Restart** button (the onboard LED will turn off).
-3. **Configure COM Port:**
-   * Open **Device Manager** to find the FPGA's COM port.
-   * Navigate to `project/scripts/` and right-click `upload_program.bat` -> **Edit**.
-   * Update the COM port number, then save and close.
-4. **Execute:**
-   * Double-click `upload_program.bat`.
-   * **Alternative (VS Code):** Open the folder in VS Code and run the task **"UPLOAD TO FPGA"** (`Ctrl+Shift+B`).
+- [docs/probe_user_guide.md](docs/probe_user_guide.md): probe setup, logging, and upload flow
+- [docs/ground_station_user_guide.md](docs/ground_station_user_guide.md): ground station setup and serial logging
+- [docs/build_and_vivado_guide.md](docs/build_and_vivado_guide.md): firmware build, WSL tools, and Vivado path setup
 
-### 2. Usage & Monitoring
-Open **PuTTY** at **115200 baud**. The terminal will stream CSV-formatted data. Use this header for logging:
-`BAT, HMC1, HMC2, HMC3, ACCEL1, ACCEL2, ACCEL3, PD1, PD2, PD3, PD4, dac_off, timer`
+## Serial settings
 
-* **Format:** HMC/Accel are 16-bit Hex (signed 2's complement). Photodiodes are 16-bit unsigned integers.
-
----
-
-## Quick Start: Ground Station
-
-The Ground Station acts as the master controller, polling the probe and displaying processed data.
-
-### 1. Powering On
-* **Battery:** Flip the physical power switch on the unit to connect the internal battery.
-* **USB:** Alternatively, connect a **USB-C** cable to power the unit and enable serial debugging.
-* *Note: The firmware is stored in non-volatile flash and will execute automatically upon power-up.*
-
-### 2. Monitoring & Interaction
-* **OLED Display:** Use the physical push-button to cycle through different telemetry menus (Radio Status, IMU data, Sun Position, etc.).
-* **Serial Terminal:** Connect via **PuTTY** (115200 baud) to view formatted system logs and debug information sent from the ESP32.
-
-### 3. Programming & Updates
-To modify the Ground Station software:
-1. Open the project in the **Arduino IDE**.
-2. **Board Selection:** Select `ESP32C3 Dev Module`.
-3. **Dependencies:** Ensure the following libraries are installed via the Library Manager:
-   * **RadioLib** (for SX1262 control)
-   * **Adafruit SSD1306** & **Adafruit GFX** (for the OLED)
-4. Click **Upload** to flash the new firmware via USB-C.
-
----
-
-### System Requirements
-* **Python 3.x** (for Probe upload scripts).
-* **Arduino IDE** (for Ground Station development).
-* **Serial Terminal** (PuTTY or Arduino Serial Monitor).
-
-### Data Formats
-* **HMC & Accelerometer:** 16-bit Hexadecimal (signed 2's complement).
-* **Photodiodes:** 16-bit Unsigned Integers.
-* **Battery (BAT):** Raw ADC value representing voltage.
-
-# Change absolute paths in project folder
-- HDL-> risc_v -> bootloader_rom.sv: parameter BOOTROM_FILE = "C:xxx"
-- test -> tb_risc_v -> testbench.sv: string test_root = "C:xxx"
+Use 115200 baud for both the probe UART output and the ground station serial terminal. We recommend PUTTY as terminal.
