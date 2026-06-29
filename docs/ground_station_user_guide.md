@@ -49,9 +49,12 @@ Each mode prints a CSV header when it starts. The output format is:
 ## What the outputs mean
 
 - Time is the elapsed time in seconds.
-- SNR and RSSI come from the radio link.
-- Voltage is the probe battery reading.
+- SNR (dB) and RSSI (dBm) come from the radio link.
+- Voltage is the probe battery reading. The physical voltage can be estimated as V_bat = raw_value × 0.036.
 - The other values are the sensor values returned by the probe.
+- For accelerometer data, convert the raw logged value to a signed integer, shift right by 4, and multiply by 0.00098 to obtain g.
+- For magnetometer data, convert the raw value to a signed integer first and then apply B_lsb = 41.7191772000e-6 Gauss/LSB and GAUSS_TO_T = 1e-4 so that B_T = raw × B_lsb × GAUSS_TO_T.
+- For photodiodes, use conv = 50000 / ((5/6.1) × 2^16) to obtain lx/LSB.
 
 ## OLED behavior
 
