@@ -6,8 +6,8 @@ module mag_sensor_processor_unit (
     input  logic        rst,              // Active-low reset (button)
 
     // HMC1001 Set/Reset driver outputs
-    output logic        set_sig,            // Set pulse to H-bridge
-    output logic        reset_sig,          // Reset pulse to H-bridge
+    output logic        set_sig,            // Set pulse to  SR-driver MOSFET's
+    output logic        reset_sig,          // Reset pulse to SR-driver MOSFET's
     input  logic        toggle,             // toggle to start system
 
     // LTC2357-16 ADC interface
@@ -20,19 +20,21 @@ module mag_sensor_processor_unit (
     input  logic        adc_sdo1,           // Channel 1 data (HMC axis 2)
     input  logic        adc_sdo2,           // Channel 2 data (HMC axis 3)
     input  logic        dac_off,
-    // AD5686R DAC interface
-
-    output logic        dac_busy, 
-    output logic        dac_rst,
-    output logic        dac_sclk,
-    output logic        dac_sdin,
-    output logic        dac_sync,
-    output logic        dac_ldac,
     
-    output logic [31:0] field_ch0,
+    // AD5686R DAC interface
+    output logic        dac_busy,           // dac busy converting 
+    output logic        dac_rst,            // reset for dac
+    output logic        dac_sclk,           // serial  clk
+    output logic        dac_sdin,           // data (HMC0,HMC1,HMC0)
+    output logic        dac_sync,           // dac sync registers
+    output logic        dac_ldac,           // Ldac - send data simultaneous
+    
+    // HMC data to CPU
+    output logic [31:0] field_ch0,  
     output logic [31:0] field_ch1,
     output logic [31:0] field_ch2,
   
+    // used for debugging
     output logic        result_valid,
     output logic        sample_enable,
     output logic        phase_o
@@ -40,8 +42,6 @@ module mag_sensor_processor_unit (
 
 
     // Internal signals
-
-
     logic [15:0] adc_ch0, adc_ch1, adc_ch2;
     // SR driver -> ADC controller and mag processor
     logic sample_en;
@@ -60,17 +60,17 @@ module mag_sensor_processor_unit (
     always_ff @(posedge clk_12mhz or posedge rst) begin
         if (rst)
               running <= 1'b0;
-        else if (toggle)      // CPU write lathes for now
+        else if (toggle)      // CPU write latches for now- meant to be controllable 
              running <= 1'b1;
     end
     // SR Driver
-    sr_driver_gen #(
+    sr_controller #(
         .CLK_FREQ_HZ    (12_000_000),
         .PULSE_TIME_US  (2),
         .SETTLE_TIME_US (1000),
         .WINDOW_TIME_US (2480),
         .GAP_TIME_US    (20)
-    ) sr_driver_inst (
+    ) sr_controller_inst (
         .clk       (clk_12mhz),
         .rst       (rst),
         .set_sig   (set_sig),
