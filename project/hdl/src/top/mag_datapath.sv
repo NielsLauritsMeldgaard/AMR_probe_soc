@@ -72,6 +72,11 @@ module mag_datapath #(
    localparam logic signed [ACC_WIDTH-1:0] INT_MIN = -32'sd32767;  // -> dac_val = 65535
 
 
+   localparam int                          PI_SHIFT = 14;
+   localparam logic signed [ACC_WIDTH-1:0] B0 =  32'sd5399;  //  0.329529 * 2^14
+   localparam logic signed [ACC_WIDTH-1:0] B1 = -32'sd573;   // -0.034973 * 2^14
+
+
     // SET and RESET accumulators for each channel
     logic signed [ACC_WIDTH-1:0] acc_set0_q, acc_set0_d;
     logic signed [ACC_WIDTH-1:0] acc_set1_q, acc_set1_d;
@@ -85,12 +90,22 @@ module mag_datapath #(
     logic signed [ACC_WIDTH-1:0] error0_q, error0_d;
     logic signed [ACC_WIDTH-1:0] error1_q, error1_d;
     logic signed [ACC_WIDTH-1:0] error2_q, error2_d;
+
+    // previous-sample error registers, e[n-1], for the Tustin PI difference equation
+    logic signed [ACC_WIDTH-1:0] error0_d1_q, error0_d1_d;
+    logic signed [ACC_WIDTH-1:0] error1_d1_q, error1_d1_d;
+    logic signed [ACC_WIDTH-1:0] error2_d1_q, error2_d1_d;
     
     // integrator wires
     logic signed [ACC_WIDTH-1:0] integ0_q, integ0_d;
     logic signed [ACC_WIDTH-1:0] integ1_q, integ1_d;
     logic signed [ACC_WIDTH-1:0] integ2_q, integ2_d;
     logic signed [ACC_WIDTH-1:0] integ0_sum, integ1_sum, integ2_sum;
+
+
+    logic signed [63:0] pi_prod0, pi_prod1, pi_prod2;
+    logic signed [ACC_WIDTH-1:0] pi_inc0, pi_inc1, pi_inc2;
+
     // Output registers
     logic       valid_q,  valid_d;
     logic [1:0] final_samp_d, final_samp_q;
@@ -110,12 +125,26 @@ module mag_datapath #(
         error0_d     = error0_q;
         error1_d     = error1_q;
         error2_d     = error2_q;
+        error0_d1_d  = error0_d1_q;
+        error1_d1_d  = error1_d1_q;
+        error2_d1_d  = error2_d1_q;
         integ0_d     = integ0_q;
         integ1_d     = integ1_q;
         integ2_d     = integ2_q;
         valid_d      = 1'b0;
         send_d       = 1'b0;
         final_samp_d = final_samp_q;
+
+        // PI increment defaults (combinational, only meaningful the cycle final_samp_q==2)
+        pi_prod0 = '0;
+        pi_prod1 = '0;
+        pi_prod2 = '0;
+        pi_inc0 = '0;
+        pi_inc1 = '0;
+        pi_inc2 = '0;
+        integ0_sum = integ0_q;
+        integ1_sum = integ1_q;
+        integ2_sum = integ2_q;
         
         
         
@@ -161,22 +190,35 @@ module mag_datapath #(
             
             // u[n] = u[n-1] + b0*e[n] + b1*e[n-1]
             
-            error0_d = (((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1)- 32'd2232;  // added values are a hardware magnetic error offset that must be compensated in logic
-            error1_d = (((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1)- 32'd1250;  // added values are a hardware magnetic error offset that must be compensated in logic
-            error2_d = (((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1)- 32'd1039;  // added values are a hardware magnetic error offset that must be compensated in logic
-            
-    
-            integ0_sum = integ0_q + (error0_d >>> INTEG_SHIFT);   
-            integ0_d   = integ0_sum;  //(integ0_sum > INT_MAX) ? INT_MAX :
-                          //(integ0_sum < INT_MIN) ? INT_MIN : integ0_sum;
-                            
-            integ1_sum = integ1_q + (error1_d >>> INTEG_SHIFT);   
-            integ1_d   = integ1_sum; //(integ1_sum > INT_MAX) ? INT_MAX :
-                         //(integ1_sum < INT_MIN) ? INT_MIN : integ1_sum;
-                         
-            integ2_sum = integ2_q + (error2_d >>> INTEG_SHIFT);   
-            integ2_d   = integ2_sum; //(integ2_sum > INT_MAX) ? INT_MAX :
-                         //(integ2_sum < INT_MIN) ? INT_MIN : integ2_sum;
+            error0_d = (((acc_set0_q - acc_rst0_q) >>> SHIFT_BITS)>>>1);//- 32'd2232;  // added values are a hardware magnetic error offset that must be compensated in logic
+            error1_d = (((acc_set1_q - acc_rst1_q) >>> SHIFT_BITS)>>>1);//- 32'd1250;  // added values are a hardware magnetic error offset that must be compensated in logic
+            error2_d = (((acc_set2_q - acc_rst2_q) >>> SHIFT_BITS)>>>1);//- 32'd1039;  // added values are a hardware magnetic error offset that must be compensated in logic
+
+            // latch e[n] into the delay register for next cycle e[n-1]
+            error0_d1_d = error0_d;
+            error1_d1_d = error1_d;
+            error2_d1_d = error2_d;
+
+
+            pi_prod0 = 64'(B0) * 64'(error0_d) + 64'(B1) * 64'(error0_d1_q);
+            pi_prod1 = 64'(B0) * 64'(error1_d) + 64'(B1) * 64'(error1_d1_q);
+            pi_prod2 = 64'(B0) * 64'(error2_d) + 64'(B1) * 64'(error2_d1_q);
+
+            pi_inc0 = ACC_WIDTH'(pi_prod0 >>> PI_SHIFT);
+            pi_inc1 = ACC_WIDTH'(pi_prod1 >>> PI_SHIFT);
+            pi_inc2 = ACC_WIDTH'(pi_prod2 >>> PI_SHIFT);
+
+            integ0_sum = integ0_q + pi_inc0;
+            integ1_sum = integ1_q + pi_inc1;
+            integ2_sum = integ2_q + pi_inc2;
+
+
+            integ0_d = (integ0_sum > INT_MAX) ? INT_MAX :
+                       (integ0_sum < INT_MIN) ? INT_MIN : integ0_sum;
+            integ1_d = (integ1_sum > INT_MAX) ? INT_MAX :
+                       (integ1_sum < INT_MIN) ? INT_MIN : integ1_sum;
+            integ2_d = (integ2_sum > INT_MAX) ? INT_MAX :
+                       (integ2_sum < INT_MIN) ? INT_MIN : integ2_sum;
             
             // Assert result valid for one cycle
             valid_d  = 1'b1;
@@ -213,6 +255,9 @@ module mag_datapath #(
             error0_q     <= '0; 
             error1_q     <= '0; 
             error2_q     <= '0;
+            error0_d1_q  <= '0;
+            error1_d1_q  <= '0;
+            error2_d1_q  <= '0;
             integ0_q     <= '0; 
             integ1_q     <= '0; 
             integ2_q     <= '0;
@@ -230,6 +275,9 @@ module mag_datapath #(
             error0_q      <= error0_d;   
             error1_q      <= error1_d;   
             error2_q      <= error2_d;
+            error0_d1_q   <= error0_d1_d;
+            error1_d1_q   <= error1_d1_d;
+            error2_d1_q   <= error2_d1_d;
             integ0_q      <= integ0_d;   
             integ1_q      <= integ1_d;   
             integ2_q      <= integ2_d;
@@ -239,19 +287,13 @@ module mag_datapath #(
 
         end
     end
-    // -------------------------------------------------------------------------
-    // Output assignments
-    // -------------------------------------------------------------------------
-    // field outputs: integrator state, signed, centred at 0
-    assign field_ch0   = error0_q;
-    assign field_ch1   = error1_q;
-    assign field_ch2   = error2_q;
+
+    assign field_ch0   = dac_val0[15:0];
+    assign field_ch1   = dac_val1[15:0];
+    assign field_ch2   = dac_val2[15:0];
     assign result_valid = valid_q;
 
-    // DAC outputs: integrator state offset by midscale
-    // integ=0 → DAC=32768 → 2.5V → zero feedback current → null
-    // integ>0 → DAC>midscale → positive coil current cancels positive field
-    // integ<0 → DAC<midscale → negative coil current cancels negative field
+
     
     assign dac_ch0 = dac_val0[15:0];
  

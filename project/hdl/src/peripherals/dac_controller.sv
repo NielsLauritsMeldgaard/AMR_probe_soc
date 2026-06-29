@@ -1,19 +1,13 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
 // Create Date: 27.05.2026 08:24:18
-// Design Name: 
 // Module Name: dac_controller
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
+// Project Name: AMR_probe_SoC
+// Target Devices: Artix_7
 // Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
+// DAC controller for AD5686R using SPI protocol and 3 channels.
+// meant to ensure proper control for DAC so data is converted from FPGA data to output feedback 
+// voltages for an offset strap in HMC-1001 AMR sensor.
 // Revision 0.01 - File Created
 // Additional Comments:
 //  [23:20] = command, [19:16] = channel address, [15:0] = data. 
@@ -21,6 +15,7 @@
 
 
 module dac_controller(
+// Board clock and reset
     input logic clk,
     input logic rst,
     
@@ -28,7 +23,7 @@ module dac_controller(
     output logic reset_n,
     output logic ldac_n,
     
-    input logic        send,
+    input logic        send, // signal from mag_datapath to send data to dac
     input logic [15:0] data_a, // value for DAC A
     input logic [15:0] data_b, // value for DAC B
     input logic [15:0] data_c, // value for DAC C
@@ -73,6 +68,7 @@ module dac_controller(
             case (state_q)
                
             ST_IDLE: begin
+            // waiting for a send signal to concatenate data from all from sensors to one large shift register
                 if (send) begin
                     shift_reg_d = {CMD, 4'b0001, data_a,
                                    CMD, 4'b0010, data_b,
@@ -107,11 +103,9 @@ module dac_controller(
                     sclk   = 1;
                     sync_n = 0;
                     if (bit_cnt_q == TOTAL_BITS - 1) begin
-                        // fix 2+3: increment frame_cnt, shift last bit, reset bit_cnt
-                        // both final-frame and mid-frame cases go to ST_SYNC_RELEASE
-                        frame_cnt_d = frame_cnt_q + 1;  // fix 2: increment here
-                        shift_reg_d = shift_reg_q << 1; // fix 3: shift last bit
-                        bit_cnt_d   = 0;                // fix 3: reset for next frame
+                        frame_cnt_d = frame_cnt_q + 1;  
+                        shift_reg_d = shift_reg_q << 1; 
+                        bit_cnt_d   = 0;                
                         state_d     = ST_SYNC_RELEASE;
                     end else begin
                         bit_cnt_d   = bit_cnt_q + 1;
