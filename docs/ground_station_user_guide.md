@@ -30,6 +30,7 @@ The serial output is the main logging interface for analysis.
 ## Serial logging menu
 
 After startup, the ground station shows a menu in the serial terminal.
+Either select a action on press the push-button to start logging.
 
 Use these keys:
 - 0: System log (SNR, RSSI, battery)
