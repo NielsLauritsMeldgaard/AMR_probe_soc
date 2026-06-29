@@ -2,7 +2,7 @@
 #include "../inc/driver.h"
 #include "../inc/sx1262_driver.h"
 
-// Opcode Definitions
+// Opcode Definitions for the user defined command interface
 #define OP_BATTERY 0x01
 #define OP_HMC     0x02
 #define OP_ACCEL   0x03
@@ -26,19 +26,25 @@ void send_response(unsigned int opcode, unsigned int sub_id, unsigned int data) 
 }
 
 // Helper: Prints current sensor state in CSV format for PC logging
-void print_csv(unsigned int v, int h1, int h2, int h3, int a1, int a2, int a3, int p1, int p2, int p3, int p4) {
-    // Format: BAT, HMC1, HMC2, HMC3, ACCEL1, ACCEL2, ACCEL3, PD1, PD2, PD3, PD4
+void print_csv(unsigned int v, int h1, int h2, int h3, int a1, int a2, int a3, int p1, int p2, int p3, int p4, int dac_off, int timer) {
+    // Format: BAT, HMC1, HMC2, HMC3, ACCEL1, ACCEL2, ACCEL3, PD1, PD2, PD3, PD4, dac_off, timer
     print_dec_u16(v, 0);  print_str(",");
-    print_dec_u16(h1, 0); print_str(",");
-    print_dec_u16(h2, 0); print_str(",");
-    print_dec_u16(h3, 0); print_str(",");
-    print_dec_u16(a1, 0); print_str(",");
-    print_dec_u16(a2, 0); print_str(",");
-    print_dec_u16(a3, 0); print_str(",");
+    print_hex(h1, 4, 0); print_str(",");
+    print_hex(h2, 4, 0); print_str(",");
+    print_hex(h3, 4, 0); print_str(",");
+    // print_dec_u16(h1, 0); print_str(",");
+    // print_dec_u16(h2, 0); print_str(",");
+    // print_dec_u16(h3, 0); print_str(",");
+    print_hex(a1, 4, 0); print_str(",");
+    print_hex(a2, 4, 0); print_str(",");
+    print_hex(a3, 4, 0); print_str(",");
     print_dec_u16(p1, 0); print_str(",");
     print_dec_u16(p2, 0); print_str(",");
     print_dec_u16(p3, 0); print_str(",");
-    print_dec_u16(p4, 1); // Ends with \r\n
+    print_dec_u16(p4, 0); print_str(","); // Ends with \r\n
+    print_dec_u16(dac_off, 0); print_str(",");// Print DAC offset state
+    print_dec_u16(timer, 1); // Print timer state
+
 }
 
 int main(void) {
@@ -57,22 +63,23 @@ int main(void) {
     // configure the SPI controller
     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
 
-    // --- Radio Boot ---
+    // Radio Boot
     digital_write(LOW, GPO_LORA_RESET_BIT);
     delay_cycles(10000);
     digital_write(HIGH, GPO_LORA_RESET_BIT);
     sx1262_wait_while_busy();
     sx1262_configure_essentials();
     
+    // Check if SX1262 is present and responding
     if (!sx1262_sanity_check()) {
         while (1)
         {
             print_str("[LOG] FATAL: SX1262 not found!\r\n");
         }        
     }
-
     print_str("[LOG] SX1262 online. System Ready.\r\n");
 
+    // Check if accelerometer is present and responding
     if (!accel_sanity_check()) {
         while (1)
         {            
@@ -82,8 +89,6 @@ int main(void) {
     // Register 0x20 (CTRL_REG1)
     accel_rw_register(CTRL_REG1_ADDR, CTRL_REG1_VALUE, LOW, LOW); 
     print_str("[LOG] Accelerometer online. System Ready.\r\n");
-
-
     print_str("[LOG] CSV Format: BAT,H1,H2,H3,A1,A2,A3,P1,P2,P3,P4\r\n");
 
     // Local state variables
@@ -95,9 +100,11 @@ int main(void) {
     unsigned int btn_state = 0;
     unsigned int btn_state_prev = 0;
     unsigned int dac_off = 0;
+    unsigned int timer_val = 0;
 
+    // Main loop
     while (1) {
-        btn_state = read_botton();
+        btn_state = read_button();
         if (btn_state == 1 && btn_state_prev == 0) {
             dac_off = !dac_off; // Toggle DAC state
             if (!dac_off) {
@@ -108,9 +115,9 @@ int main(void) {
         }
         btn_state_prev = btn_state;
 
-        // Update Sensors (Fresh data for every loop)
+        // Update Sensors
         vbat = read_xadc();
-        h1 = read_hmc_axis(1); h2 = read_hmc_axis(2); h3 = read_hmc_axis(3);
+        h1 = read_hmc_axis(1) - 32768; h2 = read_hmc_axis(2) - 32768; h3 = read_hmc_axis(3) - 32768;
         read_ADC2(&pd1, &pd2, &p3, &pd4);
         ax = read_accel_axis(1); ay = read_accel_axis(2); az = read_accel_axis(3);
 
@@ -118,8 +125,8 @@ int main(void) {
         lora_rx_len = sx1262_receive_async(&lora_rx_payload);
         if (lora_rx_len > 0) {
             unsigned int opcode = (lora_rx_payload >> 24) & 0xFF;
-            unsigned int request_id = (lora_rx_payload >> 16) & 0xFF; // Axis/Channel
-
+            unsigned int request_id = (lora_rx_payload >> 16) & 0xFF; // Axis/Channel            
+            
             switch(opcode) {
                 case OP_BATTERY:
                     send_response(OP_BATTERY, 0, vbat);
@@ -150,18 +157,14 @@ int main(void) {
             }
         }
 
-        // Periodic Logging
-        if (read_timer() > 100000) {
+        // Periodic Logging (every 15 ms)
+        timer_val = read_timer();
+        if (timer_val > 15000) {
+            // Reset timer and print CSV log
+            print_csv(vbat, h1, h2, h3, ax, ay, az, pd1, pd2, p3, pd4, dac_off, timer_val);
             set_counter();
-            
-            // DEBUG
-            //led1 = ~led1 & 0x01;
-            //set_leds(led1); // Heartbeat led1 toggle every run
-            
-            // Output fresh CSV row for PC processing
-            print_csv(vbat, h1, h2, h3, ax, ay, az, pd1, pd2, p3, pd4);
 
-            // Report Radio Errors only if they occur
+            // Check for device errors, print if any
             unsigned int status, op_err;
             sx1262_get_device_error(&status, &op_err);
             if (op_err != 0 && op_err != last_error_state) {
@@ -174,372 +177,5 @@ int main(void) {
     }
 }
 
-
-// #include "../inc/hal.h"
-// #include "../inc/driver.h"
-// #include "../inc/sx1262_driver.h"
-
-// #define BATTERY_READ_OPCODE 0x01
-// #define HMC_READ_OPCODE 0x02
-// #define ACCEL_READ_OPCODE 0x03
-// #define PD_READ_OPCODE 0x04
-
-// #define RADIO_RX_DATA_AVAILABLE 0x02
-// #define RADIO_TX_DONE_STATUS 0x06
-
-// int main(void)
-// {
-//     set_counter();
-
-//     // set SPI slaves to inactive (CS high)
-//     digital_write(HIGH, GPO_ACCEL_CS_BIT);
-//     digital_write(HIGH, GPO_LORA_CS_BIT);
-//     digital_write(HIGH, GPO_ADC2_CS_BIT);
-//     digital_write(HIGH, GPO_LORA_RF_SW_BIT);    // Set HIGH and let DIO2 control RF switch for TX/RX
-//     digital_write(HIGH, GPO_ADC2_SHDN_BIT);     // set ADC2 to shutdown
-//     digital_write(LOW, GPO_ADC2_CNV_BIT);       // set ADC2 convert bit to 0
-    
-//     // configure the SPI controller
-//     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
-
-//     // initialize variables
-//     unsigned int timer = 0; 
-//     unsigned int led = 0; 
-//     unsigned int counter = 0; 
-
-//     // Sensor variables
-//     unsigned int vbat = 0;
-//     unsigned int HMC_axis_1 = 0;
-//     unsigned int HMC_axis_2 = 0;
-//     unsigned int HMC_axis_3 = 0;
-//     unsigned int PD1 = 0;
-//     unsigned int PD2 = 0;
-//     unsigned int PD3 = 0;
-//     unsigned int PD4 = 0;
-//     unsigned int accel_x = 0;
-//     unsigned int accel_y = 0;
-//     unsigned int accel_z = 0;
-
-//     // SX1262 variables
-//     unsigned int sx1262_chip_mode = 0;
-//     unsigned int sx1262_command_status = 0;
-//     unsigned int sx1262_errors = 0;
-//     unsigned int sx1262_status = 0;
-//     unsigned int sx1262_payload = 0;
-//     unsigned int sx1262_payload_len = 0;
-//     unsigned int sx1262_opcode = 0;
-//     unsigned int sx1262_param1 = 0;
-//     unsigned int sx1262_param2 = 0;
-//     unsigned int sx1262_param3 = 0;
-//     unsigned int sx1262_tx_payload = 0;
-    
-//     // initialize lora radio
-//     digital_write(LOW, GPO_LORA_RESET_BIT); // assert reset
-//     delay_cycles(10000); // delay for reset duration
-//     digital_write(HIGH, GPO_LORA_RESET_BIT); // deassert reset
-//     sx1262_wait_while_busy(); // wait until radio is done resetting
-//     sx1262_configure_essentials();
-//     sx1262_set_power_mode(STANDBY_RC_MODE); // set to standby mode with RC oscillator to start
-//     if (sx1262_sanity_check()) {
-//         print_str("[LOG] - SX1262: boot successful\r\n");        
-//     } else {
-//         print_str("[LOG] - SX1262: boot failure\r\n");
-//     }
-
-//     while (1) {
-//         // Read battery voltage from ADC1 and store in vbat variable
-//         vbat = read_ADC1_vbat();
-
-//         // read HMC axis values and store in variables
-//         HMC_axis_1 = read_hmc_axis(1);
-//         HMC_axis_2 = read_hmc_axis(2);
-//         HMC_axis_3 = read_hmc_axis(3);
-
-//         // Read ADC2 channels for coarse suntracker and store in variables
-//         read_ADC2(&PD1, &PD2, &PD3, &PD4);
-
-//         // Read accelerometer axis values and store in variables
-//         accel_x = read_accel_axis(1);
-//         accel_y = read_accel_axis(2);
-//         accel_z = read_accel_axis(3);
-
-//         // Fast loop: Sensor and radio 
-//         if (read_timer() > 1000) {            
-//             // Radio task
-//             sx1262_payload_len = sx1262_receive_async(&sx1262_payload); // check for received LoRa packets and read payload if available
-
-//             if (sx1262_payload_len) {
-//                 sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status);
-//                 if (sx1262_command_status == RADIO_RX_DATA_AVAILABLE) {
-
-//                     // parse received payload into opcode and parameters
-//                     sx1262_opcode = (sx1262_payload >> 24) & 0xFF;
-//                     sx1262_param3 = (sx1262_payload >> 16) & 0xFF;
-//                     sx1262_param2 = (sx1262_payload >> 8) & 0xFF;
-//                     sx1262_param1 = sx1262_payload & 0xFF;
-
-//                     if (sx1262_opcode == BATTERY_READ_OPCODE) { // if opcode is 0x01, treat as battery read request
-                        
-//                         print_str("[LOG] - SX1262: Received battery read request\r\n");
-                        
-//                         // Byte 0 = 0x01, Byte 1 = 0x00, Byte 2 = VBat High, Byte 3 = VBat Low                        
-//                         sx1262_tx_payload = (BATTERY_READ_OPCODE << 24) | (vbat & 0xFFFF); // construct battery read response payload with opcode 0x01 and battery voltage in lower 16 bits
-//                         sx1262_transmit(sx1262_tx_payload); // transmit battery read response
-                        
-//                         sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status); // get status after transmission
-//                         if (sx1262_command_status == RADIO_TX_DONE_STATUS) { // if command status is 0x06, the packet was transmitted and the radio is now in standby mode
-//                             print_str("[LOG] - SX1262: Battery read response transmitted\r\n");
-//                         } else {
-//                             print_str("[LOG] - SX1262: Error transmitting battery read response, command status: 0x");
-//                             print_hex(sx1262_command_status, 2, 1);
-//                         }                
-//                     }
-
-//                     else if (sx1262_opcode == HMC_READ_OPCODE) { // if opcode is 0x02, treat as HMC read request
-//                         print_str("[LOG] - SX1262: Received HMC read request for axis ");
-//                         print_dec_u16(sx1262_param3, 1); // parameter 3 contains the axis number to read
-                        
-//                         if (sx1262_param3 == 1) {
-//                             sx1262_tx_payload = HMC_axis_1;
-//                         }
-//                         else if (sx1262_param3 == 2) {
-//                             sx1262_tx_payload = HMC_axis_2;
-//                         }
-//                         else if (sx1262_param3 == 3) {
-//                             sx1262_tx_payload = HMC_axis_3;
-//                         }
-//                         else {
-//                             print_str("[LOG] - SX1262: Invalid HMC axis number in read request: ");
-//                             print_dec_u16(sx1262_param3, 1);
-//                             sx1262_tx_payload = 0; // return 0 for invalid axis numbers
-//                         }
-
-//                         sx1262_tx_payload = (HMC_READ_OPCODE << 24) | (sx1262_param3 << 16) | (sx1262_tx_payload & 0xFFFF); // construct response payload with opcode 0x02, axis number in parameter 3, and axis value in lower 16 bits
-//                         sx1262_transmit(sx1262_tx_payload); // transmit HMC read response
-                        
-//                         sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status); // get status after transmission
-//                         if (sx1262_command_status == RADIO_TX_DONE_STATUS) { // if command status is 0x06, the packet was transmitted and the radio is now in standby mode
-//                             print_str("[LOG] - SX1262: HMC read response transmitted\r\n");
-//                         } else {
-//                             print_str("[LOG] - SX1262: Error transmitting HMC read response, command status: 0x");
-//                             print_hex(sx1262_command_status, 2, 1);
-//                         } 
-//                     }
-                    
-//                     else if (sx1262_opcode == ACCEL_READ_OPCODE) { // if opcode is 0x03, treat as accelerometer read request
-//                         print_str("[LOG] - SX1262: Received accelerometer read request for axis ");
-//                         print_dec_u16(sx1262_param3, 1); // parameter 3 contains the axis number to read
-                        
-//                         if (sx1262_param3 == 1) {
-//                             sx1262_tx_payload = accel_x;
-//                         }
-//                         else if (sx1262_param3 == 2) {
-//                             sx1262_tx_payload = accel_y;
-//                         }
-//                         else if (sx1262_param3 == 3) {
-//                             sx1262_tx_payload = accel_z;
-//                         }
-//                         else {
-//                             print_str("[LOG] - SX1262: Invalid accelerometer axis number in read request: ");
-//                             print_dec_u16(sx1262_param3, 1);
-//                             sx1262_tx_payload = 0; // return 0 for invalid axis numbers
-//                         }
-
-//                         sx1262_tx_payload = (ACCEL_READ_OPCODE << 24) | (sx1262_param3 << 16) | (sx1262_tx_payload & 0xFFFF); // construct response payload with opcode 0x03, axis number in parameter 3, and axis value in lower 16 bits
-//                         sx1262_transmit(sx1262_tx_payload); // transmit accelerometer read response
-                        
-//                         sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status); // get status after transmission
-//                         if (sx1262_command_status == RADIO_TX_DONE_STATUS) { // if command status is 0x06, the packet was transmitted and the radio is now in standby mode
-//                             print_str("[LOG] - SX1262: Accelerometer read response transmitted\r\n");
-//                         } else {
-//                             print_str("[LOG] - SX1262: Error transmitting accelerometer read response, command status: 0x");
-//                             print_hex(sx1262_command_status, 2, 1);
-//                         } 
-//                     }
-
-//                     else if (sx1262_opcode == PD_READ_OPCODE) { // if opcode is 0x04, treat as photodiode read request
-//                         print_str("[LOG] - SX1262: Received photodiode read request for channel ");
-//                         print_dec_u16(sx1262_param3, 1); // parameter 3 contains the channel number to read
-                        
-//                         if (sx1262_param3 == 1) {
-//                             sx1262_tx_payload = PD1;
-//                         }
-//                         else if (sx1262_param3 == 2) {
-//                             sx1262_tx_payload = PD2;
-//                         }
-//                         else if (sx1262_param3 == 3) {
-//                             sx1262_tx_payload = PD3;
-//                         }
-//                         else if (sx1262_param3 == 4) {
-//                             sx1262_tx_payload = PD4;
-//                         }
-//                         else {
-//                             print_str("[LOG] - SX1262: Invalid photodiode channel number in read request: ");
-//                             print_dec_u16(sx1262_param3, 1);
-//                             sx1262_tx_payload = 0; // return 0 for invalid channel numbers
-//                         }
-
-//                         sx1262_tx_payload = (PD_READ_OPCODE << 24) | (sx1262_param3 << 16) | (sx1262_tx_payload & 0xFFFF); // construct response payload with opcode 0x04, channel number in parameter 3, and channel value in lower 16 bits
-//                         sx1262_transmit(sx1262_tx_payload); // transmit photodiode read response
-                        
-//                         sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status); // get status after transmission
-//                         if (sx1262_command_status == RADIO_TX_DONE_STATUS) { // if command status is 0x06, the packet was transmitted and the radio is now in standby mode
-//                             print_str("[LOG] - SX1262: Photodiode read response transmitted\r\n");
-//                         } else {
-//                             print_str("[LOG] - SX1262: Error transmitting photodiode read response, command status: 0x");
-//                             print_hex(sx1262_command_status, 2, 1);
-//                         } 
-//                     }
-                    
-//                     // ADD HANDLERS FOR OTHER OPCODES HERE
-//                     else {
-//                         print_str("[LOG] - SX1262: Received unknown command with opcode: 0x");
-//                         print_hex(sx1262_opcode, 2, 1);
-//                         print_str(" and parameters: 0x");
-//                         print_hex(sx1262_param1, 2, 0);
-//                         print_hex(sx1262_param2, 2, 0);
-//                         print_hex(sx1262_param3, 2, 1);
-//                     }
-//                 }
-                
-//                 else {
-//                     print_str("[LOG] - SX1262: Error receiving packet, chip mode: 0x");
-//                     print_hex(sx1262_chip_mode, 2, 0);
-//                     print_str(", Command status: 0x");
-//                     print_hex(sx1262_command_status, 2, 0);
-//                     sx1262_get_device_error(&sx1262_status, &sx1262_errors);
-//                     print_str(", Device errors: 0x");
-//                     print_hex(sx1262_errors, 4, 1);    
-//                 }
-//             } 
-            
-//             else {
-//                 print_str("[LOG] - SX1262: no packet received\r\n");
-//             }
-
-//             if (read_timer() > 1000000) {
-//                 set_counter(); // reset timer counter
-            
-//                 set_leds(led); // blink led
-//                 led = ~led & 0x1;
-                
-//                 counter++; // increment counter
-//                 print_str("[LOG] - SW: Timer tick - ");
-//                 print_dec_u16(counter, 1);        
-                
-//                 print_str("[LOG] - SW: Main loop iteration complete\r\n");
-//             }
-//         }
-//     }
-// }
-
-
-
-// some code to test SX1262 LoRa radio. This will be moved to a seperate function when we're done testing
-
-// // test SPI communication with SX1262 LoRa radio. when done this will be moved to a seperate function
-//             if (sx1262_sanity_check()) {
-//                 print_str("[LOG] - SX1262: alive and responding over SPI\r\n");
-//                 sx1262_transmit(vbat);
-//                 sx1262_get_status(&sx1262_chip_mode, &sx1262_command_status);
-//                 print_str("[LOG] - SX1262: transmitted packet\r\n");
-//                 print_str("[LOG] - SX1262: Chip mode: 0x");
-//                 print_hex(sx1262_chip_mode, 2, 0);
-//                 print_str(", Command status: 0x");
-//                 print_hex(sx1262_command_status, 2, 0);
-//                 sx1262_get_device_error(&sx1262_status, &sx1262_errors);
-//                 print_str(", Device errors: 0x");
-//                 // print_hex(sx1262_status, 2, 0);
-//                 print_hex(sx1262_errors, 4, 1);            
-//             } else {
-//                     print_str("[LOG] - SX1262: radio failure\r\n");
-//                 }
-                
-//             print_str("[LOG] - SW: Main loop iteration complete\r\n");
-//             }
-
-// int main(void)
-// {
-//     set_counter();
-
-//     // set SPI slaves to inactive (CS high)
-//     digital_write(HIGH, GPO_ACCEL_CS_BIT);
-//     digital_write(HIGH, GPO_LORA_CS_BIT);
-//     digital_write(HIGH, GPO_ADC2_CS_BIT);
-//     digital_write(HIGH, GPO_LORA_RF_SW_BIT); // set LoRa RF switch to RX
-//     digital_write(HIGH, GPO_ADC2_SHDN_BIT); // set ADC2 to shutdown
-//     digital_write(LOW, GPO_ADC2_CNV_BIT); // set ADC2 convert bit to 0
-    
-//     // configure the SPI controller
-//     spi_configure(0, 0, 4); // clk_mode=0, data_mode=0, div=4 (0.75 MHz SPI clock for 12 MHz clock. 12MHz / (2^div))
-
-//     // toggle HMC unit
-//     set_hmc();
-
-//     // initialize variables
-//     unsigned int timer, led, vbat, axis_val = 0;
-//     unsigned int ctrl_reg1_read = 0;
-
-//     // photodiode outputs on ADC2 channels
-//     unsigned int PD1, PD2, PD3, PD4 = 0;
-
-
-//     while (1)
-//     {
-//         if (read_timer() > 1000000) {
-//             set_counter();
-//             set_leds(led);
-//             led = ~led & 0x1;
-
-//             if (sx1262_sanity_check()) {
-//                 print_str("SX1262 sanity check passed!\r\n");
-//             } else {
-//                 print_str("SX1262 sanity check failed!\r\n");
-//             }
-
-//             // if (accel_sanity_check()) {
-//             //     print_str("Accelerometer sanity check passed!\r\n");
-//             //     accel_rw_register(0x20, 0x27, 0, 0);
-//             //     ctrl_reg1_read = accel_rw_register(0x20, 0, 1, 0);
-//             //     print_str("Control register 1: 0x");
-//             //     print_hex(ctrl_reg1_read, 2, 1);
-//             //     unsigned int x_lo = accel_rw_register(0x2C, 0, 1, 0);
-//             //     unsigned int x_hi = accel_rw_register(0x2D, 0, 1, 0);
-//             //     unsigned int x_val = (x_hi << 8) | x_lo;
-//             //     print_str("X-axis value: 0x");
-//             //     print_hex(x_val, 4, 1);
-//             // } else {
-//             //     print_str("Accelerometer sanity check failed!\r\n");
-//             // }  
-            
-//             vbat = read_xadc();
-//             print_str("Vbat: ");
-//             print_dec_u16(vbat, 1);            
-
-//             // read ADC2 channels for photodiode values
-//             read_ADC2(&PD1, &PD2, &PD3, &PD4);
-//             print_str("PD1: ");
-//             print_dec_u16(PD1, 0);
-//             print_str(" PD2: ");
-//             print_dec_u16(PD2, 0);
-//             print_str(", PD3: ");
-//             print_dec_u16(PD3, 0);
-//             print_str(", PD4: ");
-//             print_dec_u16(PD4, 1);
-
-//             print_str("HMC axis 1: dec16=");
-//             axis_val = read_hmc_axis(1);
-//             print_dec_u16(axis_val, 1);
-
-//             print_str("HMC axis 2: dec16=");
-//             axis_val = read_hmc_axis(2);
-//             print_dec_u16(axis_val, 1);
-
-//             print_str("HMC axis 3: dec16=");
-//             axis_val = read_hmc_axis(3);
-//             print_dec_u16(axis_val, 1);
-//         }
-//     }
-// }
 
 

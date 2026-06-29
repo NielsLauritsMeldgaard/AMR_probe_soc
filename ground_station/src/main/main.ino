@@ -1,296 +1,199 @@
 #include "telemetry.h"
 #include "oled.h"
 
-
-
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 Probe probe;
+Probe probe_buf; 
 Command current_tx_cmd;
 Command current_rx_cmd;
 unsigned long lastUpdateCycle = 0;
-int menuIndex = 0;
+unsigned long lastMenuPrint = 0; // Timer for occasional menu refresh
 
-// DYNAMIC TASK LIST: Add or remove commands here to change what the GS polls
-// CommandType sensorTasks[] = { GET_BAT_VOLTAGE, GET_HMC_AXIS_1, GET_HMC_AXIS_2, GET_HMC_AXIS_3, GET_ACCEL_X, GET_ACCEL_Y, GET_ACCEL_Z, GET_PD1, GET_PD2, GET_PD3, GET_PD4 };
-CommandType sensorTasks[] = { GET_HMC_AXIS_3 };
-const int totalTasks = sizeof(sensorTasks) / sizeof(sensorTasks[0]);
+// State management
+MenuIndex menuIndex = MENU_INDEX_0;
+bool isLoggingActive = false; 
+
+// Sequences
+CommandType batterySeq[] = { GET_BAT_VOLTAGE };
+CommandType hmcSeq[]     = { GET_HMC_AXIS_1, GET_HMC_AXIS_2, GET_HMC_AXIS_3 };
+CommandType accelSeq[]   = { GET_ACCEL_X, GET_ACCEL_Y, GET_ACCEL_Z };
+CommandType pdSeq[]      = { GET_PD1, GET_PD2, GET_PD3, GET_PD4 };
+
+CommandType *activeSequence = batterySeq;
+size_t totalTasks = 1;
 int currentTaskIndex = 0;
 bool isSequenceRunning = false;
 
+/**
+ * Clear UART terminal screen and reset cursor position.
+ */
+void clearTerminal() {
+    Serial.print(F("\033[2J\033[H"));
+}
+
+/**
+ * Print CSV header for selected logging mode.
+ * @param index Selected menu index defining dataset type
+ */
+void printCsvHeader(MenuIndex index) {
+    clearTerminal();
+    Serial.print(F("--- LOG START ---\r\n"));
+    switch(index) {
+        case MENU_INDEX_0:
+            Serial.println(F("Time(f),SNR(f),RSSI(f),Voltage(f)"));
+            break;
+        case MENU_INDEX_1:
+            Serial.println(F("Time(f),H1(i16),H2(i16),H3(i16)"));
+            break;
+        case MENU_INDEX_2:
+            Serial.println(F("Time(f),X(g),Y(g),Z(g),Pitch(deg),Roll(deg)"));
+            break;
+        case MENU_INDEX_3:
+            Serial.println(F("Time(f),PD1(u16),PD2(u16),PD3(u16),PD4(u16),Azimuth(f)"));
+            break;
+        case MENU_INDEX_4:
+            Serial.println(F("Time(f),RadioState(i)"));
+            break;
+    }
+}
+
+/**
+ * Print main UART menu for selecting logging mode.
+ */
+void print_main_menu() {
+    clearTerminal();
+    Serial.println(F("----- LOG MENU -----"));
+    Serial.println(F("0: System (SNR/RSSI/BAT)"));
+    Serial.println(F("1: HMC (Magnetometer)"));
+    Serial.println(F("2: Accelerometer (G/Ori)"));
+    Serial.println(F("3: Photodiodes (PD/Azimuth)"));
+    Serial.println(F("4: Failures (Radio Status)"));
+    Serial.println(F("\r\nAction: Press 0-4 to start logging."));
+    Serial.println(F("Control: Press 'q' to stop/return."));
+    Serial.println(F("-----------------------------"));
+    lastMenuPrint = millis();
+}
+
+/**
+ * Arduino setup function. Initializes peripherals and UI.
+ */
 void setup() {
-  Serial.begin(115200);
-  while(!Serial); 
-  init_radio();
-  memset(&probe, 0, sizeof(Probe));
-  Wire.begin(8, 9); // SDA, SCL
-  if (!init_display()) {
-    Serial.println(F("SSD1306 allocation failed"));  
-  }
+    Serial.begin(115200);
+    while(!Serial);
+    init_radio();
+    memset(&probe, 0, sizeof(Probe));
+    memset(&probe_buf, 0, sizeof(Probe));
+    Wire.begin(8, 9); 
+    if (!init_display()) {
+        Serial.println(F("SSD1306 allocation failed"));
+    }
 
-  pinMode(BTN_PIN, INPUT_PULLUP);
-  attachInterrupt(
-        digitalPinToInterrupt(BTN_PIN), // Pin 10 is connected to menu select pushbutton
-        incrementPtrEvent,
-        RISING
-    );
-  
+    pinMode(BTN_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BTN_PIN), incrementPtrEvent, RISING);
+    
+    print_main_menu();
 }
 
+/**
+ * Handle UART input for menu selection and control.
+ */
+void handleUartMenu() {
+    if (Serial.available() > 0) {
+        char c = Serial.read();
+        if (c >= '0' && c <= '4') {
+            menuIndex = (MenuIndex)(c - '0');
+            isLoggingActive = true;
+            isSequenceRunning = false;
+            printCsvHeader(menuIndex);
+        } else if (c == 'q' || c == 'Q') {
+            isLoggingActive = false;
+            isSequenceRunning = false;
+            print_main_menu();
+        }
+    }
+}
+
+/**
+ * Main application loop.
+ */
 void loop() {
-  unsigned long currentTime = millis();
+    unsigned long currentTime = millis();
+    handleUartMenu();
 
-  if (!isSequenceRunning && (currentTime - lastUpdateCycle >= INTERVAL_MS)) {
-    isSequenceRunning = true;
-    currentTaskIndex = 0;
-    lastUpdateCycle = currentTime;
-    //Serial.println(F("\n[LOG] Starting new command sequence..."));
-  }
-
-  if(isSequenceRunning) {
-    buildCommand(&current_tx_cmd, sensorTasks[currentTaskIndex]); 
-    
-    // perform transaction for current command
-    long result = radio_transaction_master_async(&probe, &current_tx_cmd);
-    
-    if (result > 0) {
-      //SUCCESS
-      parseCommand(result, &current_rx_cmd);
-      process_sensor_data(&probe, &current_rx_cmd);
-      currentTaskIndex++; // Move to the next task in the list
-      delay(10);
-    }
-    else if (result < 0) {
-      // FAILURE (Timeout or hardware error)
-      Serial.printf("[LOG] Task %d (Op: 0x%02X) failed. ", 
-                    currentTaskIndex, current_tx_cmd.opcode);
-      printRadioStatus(&probe.radio);
-      currentTaskIndex++; // Move on so we don't hang the loop
-      delay(10);
+    if (!isLoggingActive && (currentTime - lastMenuPrint > 5000)) {
+        print_main_menu();
     }
 
-    //check if we finished the list
-    if (currentTaskIndex >= totalTasks) {
-      isSequenceRunning = false;
-      
-      //printRadioStatus(&probe.radio);
-      Serial.println(probe.sensorData.mag.axis3);
-            
-      // Serial.println(F("[LOG] Command sequence complete."));
-
+    MenuIndex oldIndex = menuIndex;
+    update_menu_ptr(&menuIndex);
+    if (menuIndex != oldIndex) {
+        isLoggingActive = true;
+        isSequenceRunning = false;
+        printCsvHeader(menuIndex);
     }
-  }
 
-  update_menu_ptr(&menuIndex);
+    switch (menuIndex) {
+        case MENU_INDEX_0: activeSequence = batterySeq; totalTasks = 1; break;
+        case MENU_INDEX_1: activeSequence = hmcSeq;     totalTasks = 3; break;
+        case MENU_INDEX_2: activeSequence = accelSeq;   totalTasks = 3; break;
+        case MENU_INDEX_3: activeSequence = pdSeq;      totalTasks = 4; break;
+        case MENU_INDEX_4: activeSequence = batterySeq; totalTasks = 1; break;
+    }
 
-  // // SCHEDULER: Start heartbeat if it's time and no transaction is active
-  // if (!probe.radio.isTransactionActive) {
-  //   if (currentTime - lastHeartbeatTime >= INTERVAL_MS) {
-  //     Serial.println(F("\n[LOG] Sending Heartbeat Request..."));
-  //     parseCommand((uint32_t)HEARTBEAT_OPCODE << 24, &tx_cmd);
-  //     radio_transaction_master_async(&probe, &tx_cmd);
-  //     lastHeartbeatTime = currentTime;
-  //   }
-  // } 
-  
-  // // POLLING: Process the active transaction
-  // if (probe.radio.isTransactionActive) {
-  //   int result = radio_transaction_master_async(&probe, &tx_cmd);
-    
-  //   if (result > 0) {
-  //     // result contains the raw VBat from bytes 2-3
-  //     if (tx_cmd.opcode != HEARTBEAT_OPCODE) {
-  //       // Handle if we receive a response for a different command than expected
-  //       Serial.print(F("[LOG] Received response for unexpected opcode: 0x"));
-  //       Serial.println(tx_cmd.opcode, HEX);
-  //     } else {
-  //       probe.sensorData.batteryVoltage = (float)result / 4095.0 / k_VBAT;
-        
-  //       Serial.print(F("[LOG] Success! Battery voltage: "));
-  //       Serial.print(probe.sensorData.batteryVoltage);
-  //       Serial.println(F(" V"));
-  //       printRadioStatus(&probe.radio);
-  //     } 
-  //   } else if (result < 0) {
-  //     Serial.println(F("[LOG] Transaction Failed"));
-  //     printRadioStatus(&probe.radio);
-  //   }
-  // }
+    if (isLoggingActive) {
+        if (!isSequenceRunning && (currentTime - lastUpdateCycle >= INTERVAL_MS)) {
+            isSequenceRunning = true;
+            currentTaskIndex = 0;
+            lastUpdateCycle = currentTime;
+        }
 
-  // OTHER TASKS: add OLED code here etc here
-  // updateOLED(&probe);
+        if(isSequenceRunning) {
+            buildCommand(&current_tx_cmd, activeSequence[currentTaskIndex]);
+            long result = radio_transaction_master_async(&probe_buf, &current_tx_cmd);
+
+            if (result > 0) {
+                parseCommand(result, &current_rx_cmd);
+                process_sensor_data(&probe_buf , &current_rx_cmd);
+                currentTaskIndex++;
+            }
+            else if (result < 0) {
+                currentTaskIndex++; 
+            }
+
+            if (currentTaskIndex >= totalTasks) {
+                isSequenceRunning = false;
+                memcpy(&probe, &probe_buf, sizeof(Probe));
+
+                Serial.print((millis() / 1000.0), 3);
+                Serial.print(",");
+
+                switch(menuIndex) {
+                    case MENU_INDEX_0:
+                        Serial.printf("%.1f,%.1f,%.2f\r\n", probe.radio.SNR, probe.radio.RSSI, probe.sensorData.batteryVoltage);
+                        break;
+                    case MENU_INDEX_1:
+                        Serial.printf("%d,%d,%d\r\n", probe.sensorData.mag.axis1, probe.sensorData.mag.axis2, probe.sensorData.mag.axis3);
+                        break;
+                    case MENU_INDEX_2:
+                        Serial.printf("%.3f,%.3f,%.3f,%.2f,%.2f\r\n", probe.sensorData.accel.x, probe.sensorData.accel.y, probe.sensorData.accel.z, 
+                                      probe.sensorData.accel.pitch * 180/PI, probe.sensorData.accel.roll * 180/PI);
+                        break;
+                    case MENU_INDEX_3:
+                        Serial.printf("%u,%u,%u,%u,%.2f\r\n", probe.sensorData.photodiodes.PD[0], probe.sensorData.photodiodes.PD[1], 
+                                      probe.sensorData.photodiodes.PD[2], probe.sensorData.photodiodes.PD[3], probe.sensorData.photodiodes.azimuth);
+                        break;
+                    case MENU_INDEX_4:
+                        Serial.println(probe.radio.state);
+                        break;
+                }
+            }
+        }
+    }
+
+    static unsigned long lastRenderTime = 0;
+    if (currentTime - lastRenderTime >= 33) { 
+        render_menus(menuIndex, probe);
+        lastRenderTime = currentTime;
+    }
 }
-
-
-// #include <RadioLib.h>
-// #include "telemetry"
-
-// SX1262 radio = new Module(7, 1, 3, 2);
-
-// #define HEARTBEAT_INTERVAL_MS 10000 
-// #define RESPONSE_TIMEOUT_MS 2000 
-// #define HEARTBEAT_OPCODE 0x01
-
-
-// #define PAYLOAD_LEN_BYTES 4 
-// #define k 0.036
-
-// volatile bool receivedFlag = false;
-
-// typedef struct {
-//   uint8_t opcode;
-//   uint8_t param1;
-//   uint8_t param2;
-//   uint8_t param3;
-// } Command;
-
-// typedef struct {
-//   int x;
-//   int y;
-//   int z;
-// } Accelerometer;
-
-// typedef struct {
-//   int16_t axis1;
-//   int16_t axis2;
-//   int16_t axis3;
-// } Magnetometer;
-
-// typedef struct {
-//   int PD1;
-//   int PD2;
-//   int PD3;
-//   int PD4;
-// } Photodiodes;
-
-// typedef struct {
-//   int RSSI;
-//   int SNR;
-//   int frequencyError;
-//   int state;
-// } Radio;
-
-// typedef struct {
-//   float batteryVoltage;
-//   Photodiodes photodiodes;
-//   Accelerometer accel;
-//   Magnetometer mag;
-// } SensorData;
-
-
-// typedef struct {
-//   Command lastCommand;
-//   SensorData lastSensorData;
-//   Radio lastRadioStatus;
-// } Probe;
-
-// #if defined(ESP8266) || defined(ESP32)
-//   ICACHE_RAM_ATTR
-// #endif
-// void setFlag(void) {
-//   receivedFlag = true;
-// }
-
-// enum State { IDLE, MONITOR };
-// State currentState = IDLE;
-
-// // Track if we are currently waiting for the FPGA to answer a specific request
-// bool isTransactionActive = false; 
-
-// void setup() {
-//   Serial.begin(9600);
-//   int state = radio.begin(868.0, 125.0, 9, 7, 0x12, 10, 8);  
-//   if (state != RADIOLIB_ERR_NONE) { while (true); }
-
-//   radio.setCRC(true);           
-//   radio.invertIQ(false);        
-//   radio.setDio2AsRfSwitch(true);
-//   radio.setPacketReceivedAction(setFlag);
-// }
-
-// // Returns: 1 on success, -1 on failure/timeout, 0 if still waiting
-// int radio_transaction_master_async(int opcode, uint8_t* param) {
-//   static unsigned long startTime = 0;
-//   uint8_t txBuffer[4] = {0};
-
-//   if (!isTransactionActive) {
-//     // START PHASE
-//     txBuffer[0] = opcode; 
-//     if (param != NULL) {
-//       txBuffer[1] = param[0]; txBuffer[2] = param[1]; txBuffer[3] = param[2];
-//     }
-
-//     int state = radio.transmit(txBuffer, 4);
-//     receivedFlag = false; 
-
-//     if (state == RADIOLIB_ERR_NONE) {
-//       isTransactionActive = true;
-//       startTime = millis();
-//       radio.startReceive(); // CRITICAL: Start listening for the reply!
-//       return 0; 
-//     } else {
-//       return -1;
-//     }
-//   } else {
-//     // WAITING PHASE
-//     if (receivedFlag) {
-//       isTransactionActive = false;
-//       receivedFlag = false;
-      
-//       byte byteArr[4];
-//       if (radio.readData(byteArr, 4) == RADIOLIB_ERR_NONE) {
-//         if (byteArr[0] == opcode) {
-//           // Success! Return the 16-bit value from bytes 2 and 3
-//           return (byteArr[2] << 8) | byteArr[3];
-//         }
-//       }
-//       return -1;
-//     }
-
-//     if (millis() - startTime > RESPONSE_TIMEOUT_MS) {
-//       isTransactionActive = false;
-//       return -1; // Timeout
-//     }
-
-//     return 0; // Still waiting
-//   }
-// }
-
-// void handle_idle_state() {
-//   static unsigned long last_heartbeat_time = 0;
-//   unsigned long current_time = millis();
-
-//   // If we aren't doing anything, check if it's time to start a heartbeat
-//   if (!isTransactionActive) {
-//     if (current_time - last_heartbeat_time >= HEARTBEAT_INTERVAL_MS) {
-//       Serial.println(F("[LOG] - Starting Heartbeat Request..."));
-//       radio_transaction_master_async(HEARTBEAT_OPCODE, NULL);
-//       last_heartbeat_time = current_time; // Reset timer
-//     }
-//   } 
-//   // If we ARE in a transaction, keep polling it
-//   else {
-//     int result = radio_transaction_master_async(HEARTBEAT_OPCODE, NULL);
-    
-//     if (result > 0) {
-//       // Success
-//       float voltage = (float)result / 4095.0 / k;
-//       Serial.print(F("[LOG] - Heartbeat Success! battery voltage: "));
-//       Serial.print(voltage);
-//       Serial.println(F("V"));
-//     } 
-//     else if (result < 0) {
-//       // Failure or Timeout
-//       Serial.println(F("[LOG] - Heartbeat Failed (Timeout or Error)"));
-//     }
-//     // if result == 0, we do nothing and wait for next loop iteration
-//   }
-// }
-
-// void loop() {
-//   switch (currentState) {
-//     case IDLE:
-//       handle_idle_state();
-//       break;
-//   }
-// }

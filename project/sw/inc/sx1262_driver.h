@@ -44,7 +44,7 @@
 
 // LoRa modulation params
 #define LORA_SF 0x09 // Spreading Factor
-#define LORA_BW 0x04 // Bandwidth
+#define LORA_BW 0x04 // LoRa_BW_125 (125kHz real)
 #define LORA_CR 0x03 // Coding Rate 4/7
 #define LORA_LDRO 0x00 // Low Data Rate Optimization (disabled for SF7 and BW 125 kHz)
 

@@ -4,7 +4,7 @@
 #include <RadioLib.h>
 
 // --- Constants ---
-#define INTERVAL_MS 1 
+#define INTERVAL_MS 100
 #define RESPONSE_TIMEOUT_MS 5000 
 #define k_VBAT 0.036
 #define TIMEOUT_ERROR_CODE 0xAAAA
@@ -34,6 +34,7 @@ typedef enum {
 extern SX1262 radio;
 extern volatile bool receivedFlag;
 
+
 // --- Structs ---
 typedef struct {
   uint8_t opcode;
@@ -41,7 +42,8 @@ typedef struct {
 } Command;
 
 typedef struct {
-  int16_t x, y, z;
+  float x, y, z;
+  float pitch, roll;
 } Accelerometer;
 
 typedef struct {
@@ -50,6 +52,8 @@ typedef struct {
 
 typedef struct {
   uint16_t PD[4];
+  float x_comb, y_comb, z_comb;
+  float azimuth, elevation;
 } Photodiodes;
 
 typedef struct {

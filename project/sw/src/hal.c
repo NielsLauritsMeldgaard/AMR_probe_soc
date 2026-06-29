@@ -11,7 +11,7 @@ void delay_cycles (unsigned int cycles)
     }   
 }
 
-int read_botton() {
+int read_button() {
     volatile unsigned int *btn = (volatile unsigned int *)BUTTONS_ADDR;
     return *btn;
 }
