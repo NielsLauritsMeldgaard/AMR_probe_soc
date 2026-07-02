@@ -31,6 +31,8 @@ The serial output is the main logging interface for analysis.
 
 After startup, the ground station shows a menu in the serial terminal.
 
+Either select a action on press the push-button to start logging.
+
 Use these keys:
 - 0: System log (SNR, RSSI, battery)
 - 1: Magnetometer log

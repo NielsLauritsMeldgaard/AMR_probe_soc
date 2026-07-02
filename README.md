@@ -18,4 +18,4 @@ This repository contains the full AMR probe system: the FPGA-based probe hardwar
 
 ## Serial settings
 
-Use 115200 baud for both the probe UART output and the ground station serial terminal. We recommend PUTTY as terminal.
+Use 115200 baud for both the probe UART output and the ground station serial terminal. We recommend PUTTY as terminal and saving the log for plotting.
