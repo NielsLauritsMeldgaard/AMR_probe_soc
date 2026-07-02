@@ -147,10 +147,20 @@ void process_sensor_data(Probe* probe, Command* cmd) {
 
       case HMC_READ_OPCODE: {
           int axis = cmd->params[0];
-          int16_t val = data16 - 32768;
-          if (axis == 1)      probe->sensorData.mag.axis1 = val ;
-          else if (axis == 2) probe->sensorData.mag.axis2 = val;
-          else if (axis == 3) probe->sensorData.mag.axis3 = val;
+          int16_t val = data16;
+          //int16_t val = (int16_t)(data16);
+          if (axis == 1) {      
+            probe->sensorData.mag.axis1 = val;
+            probe->sensorData.mag.axis1_G = val * GAUSS_PER_LSB;  // Gauss / LSB 
+          }
+          else if (axis == 2) {
+            probe->sensorData.mag.axis2 = val;
+            probe->sensorData.mag.axis2_G = val * GAUSS_PER_LSB;  // Gauss / LSB 
+          }
+          else if (axis == 3) {
+            probe->sensorData.mag.axis3 = val;
+            probe->sensorData.mag.axis3_G = val * GAUSS_PER_LSB;  // Gauss / LSB
+          }
           break;
       }
 

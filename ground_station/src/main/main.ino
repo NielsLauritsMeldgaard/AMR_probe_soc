@@ -44,7 +44,7 @@ void printCsvHeader(MenuIndex index) {
             Serial.println(F("Time(f),SNR(f),RSSI(f),Voltage(f)"));
             break;
         case MENU_INDEX_1:
-            Serial.println(F("Time(f),H1(i16),H2(i16),H3(i16)"));
+            Serial.println(F("Time(f),H1(i16),H2(i16),H3(i16),H1(f),H2(f),H3(f)"));
             break;
         case MENU_INDEX_2:
             Serial.println(F("Time(f),X(g),Y(g),Z(g),Pitch(deg),Roll(deg)"));
@@ -173,7 +173,7 @@ void loop() {
                         Serial.printf("%.1f,%.1f,%.2f\r\n", probe.radio.SNR, probe.radio.RSSI, probe.sensorData.batteryVoltage);
                         break;
                     case MENU_INDEX_1:
-                        Serial.printf("%d,%d,%d\r\n", probe.sensorData.mag.axis1, probe.sensorData.mag.axis2, probe.sensorData.mag.axis3);
+                        Serial.printf("%d,%d,%d,%.12f,%.12f,%.12f\r\n", probe.sensorData.mag.axis1, probe.sensorData.mag.axis2, probe.sensorData.mag.axis3, probe.sensorData.mag.axis1_G, probe.sensorData.mag.axis2_G, probe.sensorData.mag.axis3_G);
                         break;
                     case MENU_INDEX_2:
                         Serial.printf("%.3f,%.3f,%.3f,%.2f,%.2f\r\n", probe.sensorData.accel.x, probe.sensorData.accel.y, probe.sensorData.accel.z, 

@@ -62,9 +62,12 @@ void render_menus(MenuIndex menu_index, Probe probe) {
             
         case MENU_INDEX_1: // HMC
             display.println("Mag-meter:");
-            display.printf("H1:%d\n", probe.sensorData.mag.axis1);
-            display.printf("H2:%d\n", probe.sensorData.mag.axis2);
-            display.printf("H3:%d\n", probe.sensorData.mag.axis3);
+            // display.printf("H1:%d\n", probe.sensorData.mag.axis1);
+            // display.printf("H2:%d\n", probe.sensorData.mag.axis2);
+            // display.printf("H3:%d\n", probe.sensorData.mag.axis3);
+            display.printf("H1:%.4f\n", probe.sensorData.mag.axis1_G);
+            display.printf("H2:%.4f\n", probe.sensorData.mag.axis2_G);
+            display.printf("H3:%.4f\n", probe.sensorData.mag.axis3_G);
             break;
 
         case MENU_INDEX_2: // Accel

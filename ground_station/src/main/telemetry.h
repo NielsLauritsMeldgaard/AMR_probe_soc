@@ -7,6 +7,7 @@
 #define INTERVAL_MS 100
 #define RESPONSE_TIMEOUT_MS 5000 
 #define k_VBAT 0.036
+#define GAUSS_PER_LSB 41.7191772e-6f
 #define TIMEOUT_ERROR_CODE 0xAAAA
 #define ERR_OPCODE_MISMATCH 0xBBBB 
 
@@ -48,6 +49,7 @@ typedef struct {
 
 typedef struct {
   int16_t axis1, axis2, axis3;
+  float axis1_G, axis2_G, axis3_G;
 } Magnetometer;
 
 typedef struct {

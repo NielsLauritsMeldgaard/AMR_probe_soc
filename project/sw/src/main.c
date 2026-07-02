@@ -99,25 +99,30 @@ int main(void) {
     unsigned int led1 = 0;
     unsigned int btn_state = 0;
     unsigned int btn_state_prev = 0;
-    unsigned int dac_off = 0;
+    unsigned int dac_on = 1;
     unsigned int timer_val = 0;
 
     // Main loop
     while (1) {
         btn_state = read_button();
         if (btn_state == 1 && btn_state_prev == 0) {
-            dac_off = !dac_off; // Toggle DAC state
-            if (!dac_off) {
-                set_leds(3); // Set both LEDs on to indicate DAC is active (example)
-            } else {
-                set_leds(0); // Set both LEDs off to indicate DAC is off
-            }
+            dac_on = !dac_on; // Toggle DAC state
         }
         btn_state_prev = btn_state;
+        if (!dac_on) {
+            set_leds(3); // Set both LEDs on to indicate DAC is off
+        } else {
+            set_leds(0); // Set both LEDs off to indicate DAC is on
+        }
 
         // Update Sensors
         vbat = read_xadc();
-        h1 = read_hmc_axis(1) - 32768; h2 = read_hmc_axis(2) - 32768; h3 = read_hmc_axis(3) - 32768;
+        h1 = read_hmc_axis(1); h2 = read_hmc_axis(2); h3 = read_hmc_axis(3);
+        if (dac_on) {
+            h1 = -(read_hmc_axis(1) - 32768); h2 = -(read_hmc_axis(2) - 32768); h3 = -(read_hmc_axis(3) - 32768);
+        } else {
+            h1 = read_hmc_axis(1); h2 = read_hmc_axis(2); h3 = read_hmc_axis(3);
+        }
         read_ADC2(&pd1, &pd2, &p3, &pd4);
         ax = read_accel_axis(1); ay = read_accel_axis(2); az = read_accel_axis(3);
 
@@ -161,7 +166,7 @@ int main(void) {
         timer_val = read_timer();
         if (timer_val > 15000) {
             // Reset timer and print CSV log
-            print_csv(vbat, h1, h2, h3, ax, ay, az, pd1, pd2, p3, pd4, dac_off, timer_val);
+            print_csv(vbat, h1, h2, h3, ax, ay, az, pd1, pd2, p3, pd4, dac_on, timer_val);
             set_counter();
 
             // Check for device errors, print if any
