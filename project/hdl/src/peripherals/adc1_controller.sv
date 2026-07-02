@@ -50,15 +50,15 @@ module adc_controller #(
     output logic        final_sample           // signals that all samples in a window 
                                                // are captured to the Mag-datapath
 );
-    localparam int NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  
+    localparam real NS_PER_TICK = 1_000_000_000.0 / CLK_FREQ_HZ;  
     localparam int N_BITS         = 16;         
     localparam int CNV_HIGH_TICKS = int'($ceil(TCNVH         / NS_PER_TICK));  
     localparam int BUSY_TIMEOUT   = int'($ceil((TCONV * N_CHANNELS) / NS_PER_TICK));  
     localparam int QUIET_TICKS    = int'($ceil(TQUIET        / NS_PER_TICK));  
-    localparam int T_SHIFT_NS    = N_BITS * 2.0 * NS_PER_TICK;   
+    localparam real T_SHIFT_NS    = N_BITS * 2.0 * NS_PER_TICK;   
 //    // tCYC in ns
-//    localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
-//                       * NS_PER_TICK;
+   localparam real tCYC = (CNV_HIGH_TICKS + BUSY_TIMEOUT + (N_BITS * 2) + QUIET_TICKS) 
+                      * NS_PER_TICK;
 
     
 //// Window time in ns

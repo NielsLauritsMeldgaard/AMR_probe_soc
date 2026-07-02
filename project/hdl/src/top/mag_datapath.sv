@@ -288,9 +288,9 @@ module mag_datapath #(
         end
     end
 
-    assign field_ch0   = dac_val0[15:0];
-    assign field_ch1   = dac_val1[15:0];
-    assign field_ch2   = dac_val2[15:0];
+    assign field_ch0   = (dac_off) ? error0_q : dac_val0[15:0];
+    assign field_ch1   = (dac_off) ? error1_q : dac_val1[15:0];
+    assign field_ch2   = (dac_off) ? error2_q : dac_val2[15:0];
     assign result_valid = valid_q;
 
 
